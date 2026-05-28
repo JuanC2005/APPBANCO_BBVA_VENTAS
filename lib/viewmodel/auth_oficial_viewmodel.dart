@@ -1,36 +1,44 @@
 import 'package:flutter/material.dart';
-import '../model/official.dart';
+import '../model/ejecutivo.dart';
+import '../repository/auth_repository.dart';
 
 class AuthOficialViewModel extends ChangeNotifier {
-  final Official _hardcodedOfficial = Official(
-    employeeCode: "OFICIAL001", // Credencial hardcodeada
-    password: "bbva2026", // Credencial hardcodeada
-    name: "Carlos Mendoza",
-  );
+  final AuthRepository _repository;
+  Ejecutivo? _ejecutivo;
 
   bool _isLoading = false;
   bool _hasError = false;
   String _errorMessage = "";
 
+  AuthOficialViewModel(this._repository);
+
+  Ejecutivo? get ejecutivo => _ejecutivo;
   bool get isLoading => _isLoading;
   bool get hasError => _hasError;
   String get errorMessage => _errorMessage;
 
-  Future<bool> login(String employeeCode, String password) async {
+  Future<bool> login(String codigoEjecutivo, String password) async {
     _isLoading = true;
     _hasError = false;
     notifyListeners();
 
-    await Future.delayed(const Duration(seconds: 1)); // Simular loading
+    try {
+      _ejecutivo = await _repository.login(codigoEjecutivo, password);
 
-    _isLoading = false;
-    if (employeeCode == _hardcodedOfficial.employeeCode &&
-        password == _hardcodedOfficial.password) {
-      notifyListeners();
-      return true;
-    } else {
+      _isLoading = false;
+      if (_ejecutivo != null) {
+        notifyListeners();
+        return true;
+      } else {
+        _hasError = true;
+        _errorMessage = "Credenciales incorrectas";
+        notifyListeners();
+        return false;
+      }
+    } catch (e) {
+      _isLoading = false;
       _hasError = true;
-      _errorMessage = "Credenciales incorrectas";
+      _errorMessage = "Error de conexión: ${e.toString()}";
       notifyListeners();
       return false;
     }
