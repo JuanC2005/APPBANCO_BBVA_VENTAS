@@ -13,22 +13,28 @@ class LoginScreen extends ConsumerStatefulWidget {
 }
 
 class _LoginScreenState extends ConsumerState<LoginScreen> {
-  final _codigoController = TextEditingController();
+  final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _obscurePassword = true;
 
   @override
+  void initState() {
+    super.initState();
+    ref.read(authViewModelProvider.notifier).checkSession();
+  }
+
+  @override
   void dispose() {
-    _codigoController.dispose();
+    _emailController.dispose();
     _passwordController.dispose();
     super.dispose();
   }
 
   void _handleLogin() {
-    final codigo = _codigoController.text.trim();
+    final email = _emailController.text.trim();
     final password = _passwordController.text.trim();
-    if (codigo.isEmpty || password.isEmpty) return;
-    ref.read(authViewModelProvider.notifier).login(codigo, password);
+    if (email.isEmpty || password.isEmpty) return;
+    ref.read(authViewModelProvider.notifier).login(email, password);
   }
 
   @override
@@ -60,14 +66,15 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     style: TextStyle(color: BBVAColors.mediumGray)),
                 const SizedBox(height: 48),
                 TextField(
-                  controller: _codigoController,
+                  controller: _emailController,
                   decoration: InputDecoration(
-                    labelText: AppStrings.codigoEmpleado,
+                    labelText: AppStrings.email,
                     prefixIcon:
-                        const Icon(Icons.badge_outlined, color: BBVAColors.primaryBlue),
+                        const Icon(Icons.email_outlined, color: BBVAColors.primaryBlue),
                     border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(10)),
                   ),
+                  keyboardType: TextInputType.emailAddress,
                   textInputAction: TextInputAction.next,
                 ),
                 const SizedBox(height: 16),
@@ -120,6 +127,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       style: const TextStyle(color: BBVAColors.errorRed)),
                 ],
                 const SizedBox(height: 24),
+                TextButton(
+                  onPressed: () => context.push('/register'),
+                  child: Text(AppStrings.crearCuenta,
+                      style: const TextStyle(color: BBVAColors.accentBlue)),
+                ),
                 TextButton(
                   onPressed: () {},
                   child: Text(AppStrings.problemasIngreso,

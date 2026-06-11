@@ -44,14 +44,14 @@ class AuthViewModel extends StateNotifier<AuthState> {
 
   AuthViewModel(this._repository) : super(const AuthState());
 
-  Future<void> login(String codigoEmpleado, String contrasena) async {
+  Future<void> login(String email, String password) async {
     if (state.estaBloqueado) {
       state = state.copyWith(error: 'Demasiados intentos. Espere 30 min.');
       return;
     }
     state = state.copyWith(status: AuthStatus.loading, error: null);
     try {
-      final asesor = await _repository.login(codigoEmpleado, contrasena);
+      final asesor = await _repository.login(email, password);
       if (asesor != null) {
         await _repository.saveSession(asesor);
         state = state.copyWith(
@@ -66,22 +66,70 @@ class AuthViewModel extends StateNotifier<AuthState> {
           status: AuthStatus.unauthenticated,
           intentosFallidos: nuevos,
           error: 'Credenciales incorrectas',
-          bloqueoHasta: bloqueado ? DateTime.now().add(const Duration(minutes: 30)) : null,
+        bloqueoHasta: bloqueado
+            ? DateTime.now().add(const Duration(minutes: 30))
+            : null,
         );
       }
     } catch (e) {
+      final msg = e.toString().replaceFirst('Exception: ', '');
       state = state.copyWith(
         status: AuthStatus.unauthenticated,
-        error: 'Error de conexión: ${e.toString()}',
+        error: msg,
+      );
+    }
+  }
+
+  Future<void> register({
+    required String email,
+    required String password,
+    required String nombres,
+    required String apellidos,
+    required String telefono,
+    required String agenciaId,
+  }) async {
+    state = state.copyWith(status: AuthStatus.loading, error: null);
+    try {
+      final codigo = await _repository.register(
+        email: email,
+        password: password,
+        nombres: nombres,
+        apellidos: apellidos,
+        telefono: telefono,
+        agenciaId: agenciaId,
+      );
+      if (codigo != null) {
+        state = state.copyWith(
+          status: AuthStatus.unauthenticated,
+          error: null,
+        );
+      } else {
+        state = state.copyWith(
+          status: AuthStatus.unauthenticated,
+          error: 'Error al crear la cuenta. Intente de nuevo.',
+        );
+      }
+    } catch (e) {
+      final msg = e.toString().replaceFirst('Exception: ', '');
+      state = state.copyWith(
+        status: AuthStatus.unauthenticated,
+        error: msg,
       );
     }
   }
 
   Future<void> checkSession() async {
-    final codigo = await _repository.getSavedCodigo();
-    if (codigo != null) {
-      state = state.copyWith(status: AuthStatus.authenticated);
-    } else {
+    try {
+      final asesor = await _repository.getSavedSession();
+      if (asesor != null) {
+        state = state.copyWith(
+          status: AuthStatus.authenticated,
+          asesor: asesor,
+        );
+      } else {
+        state = state.copyWith(status: AuthStatus.unauthenticated);
+      }
+    } catch (_) {
       state = state.copyWith(status: AuthStatus.unauthenticated);
     }
   }

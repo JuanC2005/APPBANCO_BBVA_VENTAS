@@ -6,6 +6,7 @@ class AsesorNegocio {
   final String telefono;
   final String perfil;
   final String agenciaId;
+  final String? userId;
   final bool activo;
   final DateTime? ultimoAcceso;
 
@@ -17,6 +18,7 @@ class AsesorNegocio {
     required this.telefono,
     required this.perfil,
     required this.agenciaId,
+    this.userId,
     this.activo = true,
     this.ultimoAcceso,
   });
@@ -35,8 +37,11 @@ class AsesorNegocio {
       telefono: json['telefono'] ?? '',
       perfil: json['perfil'] ?? 'operador',
       agenciaId: json['agencia_id'] ?? '',
+      userId: json['user_id'],
       activo: json['activo'] ?? true,
-      ultimoAcceso: json['ultimo_acceso'] != null ? DateTime.tryParse(json['ultimo_acceso']) : null,
+      ultimoAcceso: json['ultimo_acceso'] != null
+          ? DateTime.tryParse(json['ultimo_acceso'])
+          : null,
     );
   }
 
@@ -48,6 +53,7 @@ class AsesorNegocio {
     'telefono': telefono,
     'perfil': perfil,
     'agencia_id': agenciaId,
+    'user_id': userId,
     'activo': activo,
     'ultimo_acceso': ultimoAcceso?.toIso8601String(),
   };

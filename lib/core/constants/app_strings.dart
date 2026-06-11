@@ -2,10 +2,13 @@ class AppStrings {
   static const String appTitle = 'BBVA Fuerza de Ventas';
   static const String appSubtitle = 'Portal Oficial de Crédito';
   static const String loginTitle = 'Iniciar Sesión';
-  static const String codigoEmpleado = 'Código de Empleado';
+  static const String email = 'Email';
   static const String password = 'Contraseña';
   static const String ingresar = 'Ingresar';
   static const String cerrarSesion = 'Cerrar sesión';
+  static const String crearCuenta = 'Crear Cuenta';
+  static const String registroExitoso =
+      'Cuenta creada exitosamente.\nYa puedes iniciar sesión.';
   static const String problemasIngreso = 'Problemas para ingresar';
   static const String credencialesIncorrectas = 'Credenciales incorrectas';
   static const String bloqueoLogin = 'Demasiados intentos. Espere 30 min.';

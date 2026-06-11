@@ -1,5 +1,6 @@
 import 'package:go_router/go_router.dart';
 import '../features/auth/presentation/login_screen.dart';
+import '../features/auth/presentation/register_screen.dart';
 import '../features/cartera/presentation/cartera_screen.dart';
 import '../features/ruta/presentation/ruta_screen.dart';
 import '../features/ficha_cliente/presentation/ficha_screen.dart';
@@ -25,6 +26,7 @@ final router = GoRouter(
   initialLocation: '/login',
   routes: [
     GoRoute(path: '/login', builder: (_, __) => const LoginScreen()),
+    GoRoute(path: '/register', builder: (_, __) => const RegisterScreen()),
     GoRoute(path: '/cartera', builder: (_, __) => const CarteraScreen()),
     GoRoute(path: '/ruta', builder: (_, __) => const RutaScreen()),
     GoRoute(path: '/ficha-cliente/:clienteId', builder: (context, state) =>
