@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class SupabaseClientProvider {
@@ -10,4 +11,17 @@ class SupabaseClientProvider {
   }
 
   static SupabaseClient get client => Supabase.instance.client;
+
+  static StreamSubscription<AuthState>? _authSubscription;
+
+  static void onAuthChange(void Function(AuthChangeEvent) callback) {
+    _authSubscription?.cancel();
+    _authSubscription = client.auth.onAuthStateChange.listen((authState) {
+      callback(authState.event);
+    });
+  }
+
+  static void dispose() {
+    _authSubscription?.cancel();
+  }
 }

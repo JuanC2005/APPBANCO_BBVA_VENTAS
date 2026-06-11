@@ -7,6 +7,7 @@ class AdminSidebar extends StatelessWidget {
   final bool onDashboard;
   final ValueChanged<String> onTableSelected;
   final VoidCallback onDashboardSelected;
+  final VoidCallback? onLogout;
 
   const AdminSidebar({
     super.key,
@@ -14,6 +15,7 @@ class AdminSidebar extends StatelessWidget {
     this.onDashboard = true,
     required this.onTableSelected,
     required this.onDashboardSelected,
+    this.onLogout,
   });
 
   @override
@@ -39,6 +41,15 @@ class AdminSidebar extends StatelessWidget {
               ],
             ),
           ),
+          const Divider(color: Colors.white24, height: 1),
+          if (onLogout != null)
+            _buildMenuItem(
+              icon: Icons.logout,
+              title: 'Cerrar sesión',
+              selected: false,
+              onTap: onLogout!,
+            ),
+          const SizedBox(height: 8),
         ],
       ),
     );
