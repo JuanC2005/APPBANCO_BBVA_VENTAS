@@ -1,0 +1,291 @@
+import asyncio
+import hashlib
+import uuid
+
+from app.core.database import supabase, supabase_execute
+from app.core.security import create_access_token
+from app.schemas.homebanking import (
+    ClienteAppLoginRequest,
+    ClienteAppPerfilResponse,
+    CuentaAhorroResponse,
+    MovimientoResponse,
+    CreditoClienteResponse,
+    CuotaCronogramaResponse,
+    TarjetaResponse,
+    NotificacionClienteResponse,
+)
+
+
+class HomebankingRepository:
+    async def login(self, req: ClienteAppLoginRequest) -> dict | None:
+        response = await supabase_execute(
+            supabase.table("clientes")
+            .select("*")
+            .eq("numero_documento", req.numero_documento)
+        )
+        if not response.data:
+            return None
+
+        cliente = response.data[0]
+
+        app_user_resp = await supabase_execute(
+            supabase.table("clientes_app")
+            .select("*")
+            .eq("cliente_id", cliente["id"])
+        )
+
+        password_hash = hashlib.sha256(req.password.encode()).hexdigest()
+
+        if app_user_resp.data:
+            app_user = app_user_resp.data[0]
+            if app_user.get("password_hash") != password_hash:
+                return None
+            if not app_user.get("activo", True):
+                return None
+            clientes_app_id = app_user["id"]
+        else:
+            clientes_app_id = str(uuid.uuid4())
+            new_user = {
+                "id": clientes_app_id,
+                "cliente_id": cliente["id"],
+                "password_hash": password_hash,
+                "activo": True,
+            }
+            insert_resp = await supabase_execute(
+                supabase.table("clientes_app").insert(new_user)
+            )
+            if not insert_resp.data:
+                return None
+
+        await supabase_execute(
+            supabase.table("clientes_app")
+            .update({"ultimo_acceso": "now()"})
+            .eq("id", clientes_app_id)
+        )
+
+        token = create_access_token({
+            "sub": clientes_app_id,
+            "cliente_id": cliente["id"],
+            "tipo": "cliente",
+            "numero_documento": cliente["numero_documento"],
+        })
+
+        return {
+            "access_token": token,
+            "token_type": "bearer",
+            "cliente": cliente,
+        }
+
+    async def get_profile(self, clientes_app_id: str) -> dict | None:
+        response = await supabase_execute(
+            supabase.table("clientes_app")
+            .select("*, cliente:clientes(*)")
+            .eq("id", clientes_app_id)
+        )
+        if not response.data:
+            return None
+        data = response.data[0]
+        data.pop("password_hash", None)
+        return data.get("cliente", data)
+
+    async def get_cuentas(self, cliente_id: str) -> list[dict]:
+        response = await supabase_execute(
+            supabase.table("cr_cuentas_ahorro")
+            .select("*")
+            .eq("cliente_id", cliente_id)
+            .eq("estado", "activa")
+            .order("fecha_apertura", desc=True)
+        )
+        return response.data or []
+
+    async def get_movimientos(self, cuenta_id: str, cliente_id: str, limite: int = 20) -> list[dict]:
+        response = await supabase_execute(
+            supabase.table("cr_movimientos")
+            .select("*")
+            .eq("cuenta_id", cuenta_id)
+            .eq("cliente_id", cliente_id)
+            .order("fecha_operacion", desc=True)
+            .limit(limite)
+        )
+        return response.data or []
+
+    async def get_creditos(self, cliente_id: str) -> list[dict]:
+        response = await supabase_execute(
+            supabase.table("creditos")
+            .select("*")
+            .eq("cliente_id", cliente_id)
+            .in_("estado", ["vigente", "vencido"])
+            .order("fecha_desembolso", desc=True)
+        )
+        return response.data or []
+
+    async def get_cronograma(self, credito_id: str, cliente_id: str) -> list[dict]:
+        response = await supabase_execute(
+            supabase.table("cr_cronograma_cuotas")
+            .select("*")
+            .eq("credito_id", credito_id)
+            .eq("cliente_id", cliente_id)
+            .order("nro_cuota")
+        )
+        return response.data or []
+
+    async def get_tarjetas(self, cliente_id: str) -> list[dict]:
+        response = await supabase_execute(
+            supabase.table("cr_tarjetas")
+            .select("*")
+            .eq("cliente_id", cliente_id)
+            .in_("estado", ["activa", "bloqueada"])
+            .order("fecha_vencimiento", desc=True)
+        )
+        return response.data or []
+
+    async def get_notificaciones(self, cliente_id: str, limite: int = 20) -> list[dict]:
+        response = await supabase_execute(
+            supabase.table("cr_notificaciones_cliente")
+            .select("*")
+            .eq("cliente_id", cliente_id)
+            .order("created_at", desc=True)
+            .limit(limite)
+        )
+        return response.data or []
+
+    async def marcar_notificacion_leida(self, notificacion_id: str, cliente_id: str) -> bool:
+        response = await supabase_execute(
+            supabase.table("cr_notificaciones_cliente")
+            .update({"leida": True})
+            .eq("id", notificacion_id)
+            .eq("cliente_id", cliente_id)
+        )
+        return bool(response.data)
+
+    async def marcar_todas_notificaciones_leidas(self, cliente_id: str) -> bool:
+        response = await supabase_execute(
+            supabase.table("cr_notificaciones_cliente")
+            .update({"leida": True})
+            .eq("cliente_id", cliente_id)
+            .eq("leida", False)
+        )
+        return True
+
+    async def realizar_transferencia(
+        self, cuenta_origen_id: str, cliente_id: str,
+        cuenta_destino: str, monto: float, descripcion: str = ""
+    ) -> dict | None:
+        cuenta_resp = await supabase_execute(
+            supabase.table("cr_cuentas_ahorro")
+            .select("*")
+            .eq("id", cuenta_origen_id)
+            .eq("cliente_id", cliente_id)
+        )
+        if not cuenta_resp.data:
+            return None
+
+        cuenta = cuenta_resp.data[0]
+        if cuenta["saldo_actual"] < monto:
+            return None
+
+        nuevo_saldo = cuenta["saldo_actual"] - monto
+
+        await supabase_execute(
+            supabase.table("cr_cuentas_ahorro")
+            .update({"saldo_actual": nuevo_saldo})
+            .eq("id", cuenta_origen_id)
+        )
+
+        mov_data = {
+            "cuenta_id": cuenta_origen_id,
+            "cliente_id": cliente_id,
+            "tipo_movimiento": "transferencia",
+            "monto": monto,
+            "moneda": cuenta["moneda"],
+            "saldo_anterior": cuenta["saldo_actual"],
+            "saldo_posterior": nuevo_saldo,
+            "descripcion": descripcion or f"Transferencia a {cuenta_destino}",
+            "referencia": cuenta_destino,
+            "fecha_operacion": "CURRENT_DATE",
+        }
+        await supabase_execute(
+            supabase.table("cr_movimientos").insert(mov_data)
+        )
+
+        return {
+            "mensaje": "Transferencia realizada con éxito",
+            "nuevo_saldo": nuevo_saldo,
+        }
+
+    async def pagar_cuota(
+        self, credito_id: str, cliente_id: str,
+        monto: float, cuenta_origen_id: str
+    ) -> dict | None:
+        cuenta_resp = await supabase_execute(
+            supabase.table("cr_cuentas_ahorro")
+            .select("*")
+            .eq("id", cuenta_origen_id)
+            .eq("cliente_id", cliente_id)
+        )
+        if not cuenta_resp.data:
+            return {"error": "Cuenta no encontrada"}
+        if cuenta_resp.data[0]["saldo_actual"] < monto:
+            return {"error": "Saldo insuficiente"}
+
+        cuota_resp = await supabase_execute(
+            supabase.table("cr_cronograma_cuotas")
+            .select("*")
+            .eq("credito_id", credito_id)
+            .eq("cliente_id", cliente_id)
+            .eq("estado", "pendiente")
+            .order("nro_cuota")
+            .limit(1)
+        )
+        if not cuota_resp.data:
+            return {"error": "No hay cuotas pendientes"}
+
+        cuota = cuota_resp.data[0]
+        cuenta = cuenta_resp.data[0]
+        nuevo_saldo = cuenta["saldo_actual"] - monto
+
+        await supabase_execute(
+            supabase.table("cr_cuentas_ahorro")
+            .update({"saldo_actual": nuevo_saldo})
+            .eq("id", cuenta_origen_id)
+        )
+
+        await supabase_execute(
+            supabase.table("cr_cronograma_cuotas")
+            .update({
+                "estado": "pagada",
+                "fecha_pago": "CURRENT_DATE",
+            })
+            .eq("id", cuota["id"])
+        )
+
+        mov_data = {
+            "cuenta_id": cuenta_origen_id,
+            "cliente_id": cliente_id,
+            "tipo_movimiento": "pago",
+            "monto": monto,
+            "moneda": cuenta["moneda"],
+            "saldo_anterior": cuenta["saldo_actual"],
+            "saldo_posterior": nuevo_saldo,
+            "descripcion": f"Pago cuota N°{cuota['nro_cuota']} - Crédito {credito_id[:8]}",
+            "fecha_operacion": "CURRENT_DATE",
+        }
+        await supabase_execute(
+            supabase.table("cr_movimientos").insert(mov_data)
+        )
+
+        return {
+            "mensaje": f"Cuota N°{cuota['nro_cuota']} pagada con éxito",
+            "nuevo_saldo": nuevo_saldo,
+        }
+
+    async def get_todas_cuentas_con_movimientos(self, cliente_id: str) -> list[dict]:
+        cuentas = await self.get_cuentas(cliente_id)
+        result = []
+        for c in cuentas:
+            movs = await self.get_movimientos(c["id"], cliente_id, limite=5)
+            result.append({
+                "cuenta": c,
+                "ultimos_movimientos": movs,
+            })
+        return result

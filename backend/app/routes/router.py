@@ -8,6 +8,7 @@ from app.routes.buro import router as buro_router
 from app.routes.cobranza import router as cobranza_router
 from app.routes.campana import router as campana_router
 from app.routes.reporte import router as reporte_router
+from app.routes.homebanking import router as homebanking_router
 
 api_router = APIRouter(prefix="/api/v1")
 api_router.include_router(auth_router)
@@ -19,3 +20,4 @@ api_router.include_router(buro_router)
 api_router.include_router(cobranza_router)
 api_router.include_router(campana_router)
 api_router.include_router(reporte_router)
+api_router.include_router(homebanking_router)
