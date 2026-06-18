@@ -1073,6 +1073,51 @@ class DatabaseTables {
             showInTable: false),
       ],
     ),
+    TableConfig(
+      tableName: 'campanas',
+      displayName: 'Campañas',
+      icon: Icons.campaign,
+      category: 'Marketing',
+      columns: [
+        ColumnConfig(fieldName: 'titulo', label: 'Título'),
+        ColumnConfig(fieldName: 'mensaje', label: 'Mensaje', type: ColumnType.textarea),
+        ColumnConfig(fieldName: 'tipo', label: 'Tipo', type: ColumnType.stringEnum, enumValues: ['marketing','cobranza','capacitacion','informativa']),
+        ColumnConfig(fieldName: 'segmento_objetivo', label: 'Segmento', type: ColumnType.stringEnum, enumValues: ['A','B','C','D','E','TODOS']),
+        ColumnConfig(fieldName: 'producto_sugerido', label: 'Producto Sug.'),
+        ColumnConfig(fieldName: 'fecha_inicio', label: 'Inicio', type: ColumnType.date),
+        ColumnConfig(fieldName: 'fecha_fin', label: 'Fin', type: ColumnType.date),
+        ColumnConfig(fieldName: 'activa', label: 'Activa', type: ColumnType.boolean),
+        ColumnConfig(fieldName: 'creado_por', label: 'Creado Por', type: ColumnType.uuid, foreignTable: 'asesores_negocio', foreignLabel: 'nombres'),
+        ColumnConfig(fieldName: 'created_at', label: 'Creado', type: ColumnType.datetime, editable: false),
+      ],
+    ),
+    TableConfig(
+      tableName: 'campanas_asesores',
+      displayName: 'Campañas por Asesor',
+      icon: Icons.assignment,
+      category: 'Marketing',
+      columns: [
+        ColumnConfig(fieldName: 'campana_id', label: 'Campaña', type: ColumnType.uuid, foreignTable: 'campanas', foreignLabel: 'titulo'),
+        ColumnConfig(fieldName: 'asesor_id', label: 'Asesor', type: ColumnType.uuid, foreignTable: 'asesores_negocio', foreignLabel: 'nombres'),
+        ColumnConfig(fieldName: 'leida', label: 'Leída', type: ColumnType.boolean),
+        ColumnConfig(fieldName: 'leida_at', label: 'Leída en', type: ColumnType.datetime),
+        ColumnConfig(fieldName: 'created_at', label: 'Creado', type: ColumnType.datetime, editable: false),
+      ],
+    ),
+    TableConfig(
+      tableName: 'notificaciones_push',
+      displayName: 'Push Historial',
+      icon: Icons.notifications,
+      category: 'Marketing',
+      columns: [
+        ColumnConfig(fieldName: 'campana_id', label: 'Campaña', type: ColumnType.uuid, foreignTable: 'campanas', foreignLabel: 'titulo'),
+        ColumnConfig(fieldName: 'asesor_id', label: 'Asesor', type: ColumnType.uuid, foreignTable: 'asesores_negocio', foreignLabel: 'nombres'),
+        ColumnConfig(fieldName: 'titulo', label: 'Título'),
+        ColumnConfig(fieldName: 'cuerpo', label: 'Cuerpo'),
+        ColumnConfig(fieldName: 'leida', label: 'Leída', type: ColumnType.boolean),
+        ColumnConfig(fieldName: 'enviada_at', label: 'Enviada', type: ColumnType.datetime, editable: false),
+      ],
+    ),
   ];
 
   static final Map<String, List<TableConfig>> _byCategory = () {

@@ -20,7 +20,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   @override
   void initState() {
     super.initState();
-    ref.read(authViewModelProvider.notifier).checkSession();
   }
 
   @override
@@ -68,7 +67,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 TextField(
                   controller: _emailController,
                   decoration: InputDecoration(
-                    labelText: AppStrings.email,
+                    labelText: 'Correo electrónico',
                     prefixIcon:
                         const Icon(Icons.email_outlined, color: BBVAColors.primaryBlue),
                     border: OutlineInputBorder(

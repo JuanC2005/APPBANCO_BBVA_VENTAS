@@ -8,6 +8,8 @@ import 'widgets/table_config.dart';
 import 'dashboard_screen.dart';
 import 'table_list_screen.dart';
 import 'admin_login_screen.dart';
+import 'admin_role_management_screen.dart';
+import 'admin_reportes_screen.dart';
 
 class AdminApp extends StatelessWidget {
   const AdminApp({super.key});
@@ -111,11 +113,33 @@ class AdminShell extends StatefulWidget {
 
 class _AdminShellState extends State<AdminShell> {
   bool _onDashboard = true;
+  bool _onRoles = false;
+  bool _onReportes = false;
   String? _selectedTable;
 
   void _goToDashboard() {
     setState(() {
       _onDashboard = true;
+      _onRoles = false;
+      _onReportes = false;
+      _selectedTable = null;
+    });
+  }
+
+  void _goToRoles() {
+    setState(() {
+      _onDashboard = false;
+      _onRoles = true;
+      _onReportes = false;
+      _selectedTable = null;
+    });
+  }
+
+  void _goToReportes() {
+    setState(() {
+      _onDashboard = false;
+      _onRoles = false;
+      _onReportes = true;
       _selectedTable = null;
     });
   }
@@ -123,6 +147,8 @@ class _AdminShellState extends State<AdminShell> {
   void _goToTable(String tableName) {
     setState(() {
       _onDashboard = false;
+      _onRoles = false;
+      _onReportes = false;
       _selectedTable = tableName;
     });
   }
@@ -163,8 +189,12 @@ class _AdminShellState extends State<AdminShell> {
         children: [
           AdminSidebar(
             onDashboard: _onDashboard,
+            onRoles: _onRoles,
+            onReportes: _onReportes,
             selectedTable: _selectedTable,
             onDashboardSelected: _goToDashboard,
+            onRolesSelected: _goToRoles,
+            onReportesSelected: _goToReportes,
             onTableSelected: _goToTable,
             onLogout: widget.onLogout,
           ),
@@ -172,12 +202,16 @@ class _AdminShellState extends State<AdminShell> {
           Expanded(
             child: _onDashboard
                 ? const DashboardScreen()
-                : (_selectedTable != null
-                    ? TableListScreen(
-                        key: ValueKey(_selectedTable),
-                        tableName: _selectedTable!,
-                      )
-                    : const DashboardScreen()),
+                : _onRoles
+                    ? const AdminRoleManagementScreen()
+                    : _onReportes
+                        ? const AdminReportesScreen()
+                        : (_selectedTable != null
+                            ? TableListScreen(
+                                key: ValueKey(_selectedTable),
+                                tableName: _selectedTable!,
+                              )
+                            : const DashboardScreen()),
           ),
         ],
       ),

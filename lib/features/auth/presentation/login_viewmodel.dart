@@ -1,4 +1,6 @@
+import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../domain/asesor_negocio.dart';
 import '../data/auth_repository.dart';
 
@@ -10,6 +12,7 @@ class AuthState {
   final String? error;
   final int intentosFallidos;
   final DateTime? bloqueoHasta;
+  final int pendientesSync;
 
   const AuthState({
     this.status = AuthStatus.initial,
@@ -17,6 +20,7 @@ class AuthState {
     this.error,
     this.intentosFallidos = 0,
     this.bloqueoHasta,
+    this.pendientesSync = 0,
   });
 
   AuthState copyWith({
@@ -25,6 +29,7 @@ class AuthState {
     String? error,
     int? intentosFallidos,
     DateTime? bloqueoHasta,
+    int? pendientesSync,
   }) {
     return AuthState(
       status: status ?? this.status,
@@ -32,6 +37,7 @@ class AuthState {
       error: error ?? this.error,
       intentosFallidos: intentosFallidos ?? this.intentosFallidos,
       bloqueoHasta: bloqueoHasta ?? this.bloqueoHasta,
+      pendientesSync: pendientesSync ?? this.pendientesSync,
     );
   }
 
@@ -41,8 +47,56 @@ class AuthState {
 
 class AuthViewModel extends StateNotifier<AuthState> {
   final AuthRepository _repository;
+  Timer? _inactivityTimer;
+  static const _inactivityDuration = Duration(hours: 8);
+  static const _lastActivityKey = 'last_activity_timestamp';
 
   AuthViewModel(this._repository) : super(const AuthState());
+
+  Future<void> initAsync() async {
+    try {
+      await _checkInactivityOnStart();
+    } catch (_) {
+      state = state.copyWith(status: AuthStatus.unauthenticated);
+    }
+    try {
+      await checkSession().timeout(const Duration(seconds: 15));
+    } catch (_) {
+      state = state.copyWith(status: AuthStatus.unauthenticated);
+    }
+  }
+
+  /// Resetea el timer de inactividad cada vez que el usuario interactúa.
+  void registrarActividad() {
+    _inactivityTimer?.cancel();
+    _inactivityTimer = Timer(_inactivityDuration, _inactivityLogout);
+    SharedPreferences.getInstance().then((prefs) {
+      prefs.setInt(
+          _lastActivityKey, DateTime.now().millisecondsSinceEpoch);
+    });
+  }
+
+  Future<void> _checkInactivityOnStart() async {
+    final prefs = await SharedPreferences.getInstance();
+    final lastActivity =
+        prefs.getInt(_lastActivityKey);
+    if (lastActivity != null) {
+      final elapsed =
+          DateTime.now().millisecondsSinceEpoch - lastActivity;
+      if (elapsed > _inactivityDuration.inMilliseconds) {
+        await logout();
+        return;
+      }
+    }
+    registrarActividad();
+  }
+
+  Future<void> _inactivityLogout() async {
+    state = state.copyWith(
+      error: 'Sesión expirada por inactividad (>8 horas)',
+    );
+    await logout();
+  }
 
   Future<void> login(String email, String password) async {
     if (state.estaBloqueado) {
@@ -54,11 +108,14 @@ class AuthViewModel extends StateNotifier<AuthState> {
       final asesor = await _repository.login(email, password);
       if (asesor != null) {
         await _repository.saveSession(asesor);
+        final pendientes = await _repository.obtenerPendientesSync();
         state = state.copyWith(
           status: AuthStatus.authenticated,
           asesor: asesor,
           intentosFallidos: 0,
+          pendientesSync: pendientes.length,
         );
+        registrarActividad();
       } else {
         final nuevos = state.intentosFallidos + 1;
         final bloqueado = nuevos >= 5;
@@ -66,9 +123,9 @@ class AuthViewModel extends StateNotifier<AuthState> {
           status: AuthStatus.unauthenticated,
           intentosFallidos: nuevos,
           error: 'Credenciales incorrectas',
-        bloqueoHasta: bloqueado
-            ? DateTime.now().add(const Duration(minutes: 30))
-            : null,
+          bloqueoHasta: bloqueado
+              ? DateTime.now().add(const Duration(minutes: 30))
+              : null,
         );
       }
     } catch (e) {
@@ -78,6 +135,25 @@ class AuthViewModel extends StateNotifier<AuthState> {
         error: msg,
       );
     }
+  }
+
+  /// Logout con verificación de pendientes (RF-08).
+  /// Retorna el número de pendientes (0 si se hizo logout completo).
+  Future<int> logout({bool force = false}) async {
+    if (!force) {
+      final pendientes = await _repository.obtenerPendientesSync();
+      if (pendientes.isNotEmpty) {
+        state = state.copyWith(pendientesSync: pendientes.length);
+        return pendientes.length;
+      }
+    }
+    _inactivityTimer?.cancel();
+    state = state.copyWith(status: AuthStatus.loading);
+    try {
+      await _repository.logout();
+    } catch (_) {}
+    state = const AuthState(status: AuthStatus.unauthenticated);
+    return 0;
   }
 
   Future<void> register({
@@ -126,6 +202,7 @@ class AuthViewModel extends StateNotifier<AuthState> {
           status: AuthStatus.authenticated,
           asesor: asesor,
         );
+        registrarActividad();
       } else {
         state = state.copyWith(status: AuthStatus.unauthenticated);
       }
@@ -134,9 +211,10 @@ class AuthViewModel extends StateNotifier<AuthState> {
     }
   }
 
-  Future<void> logout() async {
-    await _repository.logout();
-    state = const AuthState(status: AuthStatus.unauthenticated);
+  @override
+  void dispose() {
+    _inactivityTimer?.cancel();
+    super.dispose();
   }
 }
 

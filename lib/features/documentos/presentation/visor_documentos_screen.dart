@@ -1,35 +1,57 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/constants/app_colors.dart';
+import '../domain/documento_solicitud.dart';
+import 'documentos_viewmodel.dart';
 
-class VisorDocumentosScreen extends StatelessWidget {
+class VisorDocumentosScreen extends ConsumerStatefulWidget {
   final String solicitudId;
   const VisorDocumentosScreen({super.key, required this.solicitudId});
 
   @override
+  ConsumerState<VisorDocumentosScreen> createState() =>
+      _VisorDocumentosScreenState();
+}
+
+class _VisorDocumentosScreenState extends ConsumerState<VisorDocumentosScreen> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref
+          .read(documentosViewModelProvider.notifier)
+          .cargarDocumentos(widget.solicitudId);
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final state = ref.watch(documentosViewModelProvider);
+
     return Scaffold(
       appBar: AppBar(title: const Text('Documentos Adjuntos')),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          _docCard('DNI Frontal', 'dni_frontal.jpg', '120 KB', true),
-          _docCard('DNI Posterior', 'dni_posterior.jpg', '115 KB', true),
-          _docCard('Recibo de Servicio', 'recibo.jpg', '245 KB', true),
-          _docCard('Croquis', 'croquis.jpg', '180 KB', false),
-        ],
-      ),
+      body: state.documentos.isEmpty
+          ? const Center(child: Text('Sin documentos adjuntos'))
+          : ListView(
+              padding: const EdgeInsets.all(16),
+              children: state.documentos.map(_docCard).toList(),
+            ),
     );
   }
 
-  Widget _docCard(String name, String file, String size, bool uploaded) {
+  Widget _docCard(DocumentoSolicitud doc) {
+    final uploaded = doc.estado == 'LISTO';
     return Card(
       child: ListTile(
-        leading: const Icon(Icons.description, color: BBVAColors.primaryBlue),
-        title: Text(name),
-        subtitle: Text('$file · $size'),
+        leading: const Icon(Icons.description,
+            color: BBVAColors.primaryBlue),
+        title: Text(doc.tipoLabel),
+        subtitle: Text(uploaded ? 'Subido' : 'Pendiente'),
         trailing: Icon(
           uploaded ? Icons.cloud_done : Icons.cloud_off,
-          color: uploaded ? BBVAColors.successGreen : BBVAColors.errorRed,
+          color: uploaded
+              ? BBVAColors.successGreen
+              : BBVAColors.errorRed,
         ),
       ),
     );

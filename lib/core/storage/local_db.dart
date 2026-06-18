@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -60,15 +61,43 @@ class LocalDatabase {
 
   Future<void> guardarBorrador(Map<String, dynamic> data) async {
     final db = await database;
-    await db.insert('solicitudes_borrador', data,
+    final row = {
+      'id': data['id'],
+      'cliente_id': data['cliente_id'],
+      'cliente_nombre': data['cliente_nombre'],
+      'paso_actual': data['paso_actual'] ?? 1,
+      'datos_json': jsonEncode(data),
+      'monto_solicitado': data['monto_solicitado'] ?? 0,
+      'asesor_id': data['asesor_id'],
+      'updated_at': DateTime.now().millisecondsSinceEpoch,
+    };
+    await db.insert('solicitudes_borrador', row,
         conflictAlgorithm: ConflictAlgorithm.replace);
   }
 
-  Future<List<Map<String, dynamic>>> obtenerBorradores(String asesorId) async {
+  Future<Map<String, dynamic>?> obtenerBorrador(String id) async {
     final db = await database;
-    return db.query('solicitudes_borrador',
-        where: 'asesor_id = ?', whereArgs: [asesorId],
-        orderBy: 'updated_at DESC');
+    final rows = await db.query('solicitudes_borrador',
+        where: 'id = ?', whereArgs: [id]);
+    if (rows.isEmpty) return null;
+    final row = rows.first;
+    final json = row['datos_json'] as String?;
+    if (json != null) return jsonDecode(json) as Map<String, dynamic>;
+    return row;
+  }
+
+  Future<List<Map<String, dynamic>>> obtenerBorradores(String asesorId, {bool pendientesSync = false}) async {
+    final db = await database;
+    final rows = pendientesSync
+        ? await db.query('solicitudes_borrador', where: 'pendiente_sync = 1')
+        : await db.query('solicitudes_borrador',
+            where: 'asesor_id = ?', whereArgs: [asesorId],
+            orderBy: 'updated_at DESC');
+    return rows.map((r) {
+      final json = r['datos_json'] as String?;
+      if (json != null) return jsonDecode(json) as Map<String, dynamic>;
+      return r;
+    }).toList();
   }
 
   Future<void> eliminarBorrador(String id) async {
@@ -92,5 +121,35 @@ class LocalDatabase {
     final db = await database;
     await db.update('visitas_pendientes', {'pendiente_sync': 0},
         where: 'id = ?', whereArgs: [id]);
+  }
+
+  Future<void> cacheCartera(List<Map<String, dynamic>> visitas) async {
+    final db = await database;
+    final today = DateTime.now().toIso8601String().substring(0, 10);
+    final batch = db.batch();
+    batch.delete('cartera_cache', where: 'fecha = ?', whereArgs: [today]);
+    for (final v in visitas) {
+      batch.insert('cartera_cache', {
+        'id': v['id'],
+        'datos_json': jsonEncode(v),
+        'fecha': today,
+        'updated_at': DateTime.now().millisecondsSinceEpoch,
+      }, conflictAlgorithm: ConflictAlgorithm.replace);
+    }
+    await batch.commit(noResult: true);
+  }
+
+  Future<List<Map<String, dynamic>>> obtenerCarteraCache() async {
+    final db = await database;
+    final today = DateTime.now().toIso8601String().substring(0, 10);
+    return db.query('cartera_cache',
+        where: 'fecha = ?', whereArgs: [today]);
+  }
+
+  Future<void> limpiarTodo() async {
+    final db = await database;
+    await db.delete('solicitudes_borrador');
+    await db.delete('visitas_pendientes');
+    await db.delete('cartera_cache');
   }
 }

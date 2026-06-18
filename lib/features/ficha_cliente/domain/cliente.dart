@@ -21,6 +21,11 @@ class Cliente {
   final DateTime? fechaNacimiento;
   final String? ocupacion;
   final double? ingresosMensuales;
+  final double? ingresosEstimados;
+  final String? tipoNegocio;
+  final String? estadoCliente;
+  final String? calificacionSbs;
+  final String? nombreNegocio;
 
   Cliente({
     required this.id,
@@ -45,6 +50,11 @@ class Cliente {
     this.fechaNacimiento,
     this.ocupacion,
     this.ingresosMensuales,
+    this.ingresosEstimados,
+    this.tipoNegocio,
+    this.estadoCliente,
+    this.calificacionSbs,
+    this.nombreNegocio,
   });
 
   String get nombreCompleto => '$nombres $apellidoPaterno $apellidoMaterno';
@@ -73,6 +83,11 @@ class Cliente {
       fechaNacimiento: json['fecha_nacimiento'] != null ? DateTime.tryParse(json['fecha_nacimiento']) : null,
       ocupacion: json['ocupacion'],
       ingresosMensuales: (json['ingresos_mensuales'] as num?)?.toDouble(),
+      ingresosEstimados: (json['ingresos_estimados'] as num?)?.toDouble(),
+      tipoNegocio: json['tipo_negocio'],
+      estadoCliente: json['estado_cliente'],
+      calificacionSbs: json['calificacion_sbs'],
+      nombreNegocio: json['nombre_negocio'],
     );
   }
 

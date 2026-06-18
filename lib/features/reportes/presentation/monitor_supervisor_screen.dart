@@ -1,32 +1,76 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../../core/storage/supabase/supabase_client.dart';
+import '../../auth/presentation/login_viewmodel.dart';
 
-class MonitorSupervisorScreen extends StatelessWidget {
+class MonitorSupervisorScreen extends ConsumerStatefulWidget {
   const MonitorSupervisorScreen({super.key});
+
+  @override
+  ConsumerState<MonitorSupervisorScreen> createState() =>
+      _MonitorSupervisorScreenState();
+}
+
+class _MonitorSupervisorScreenState
+    extends ConsumerState<MonitorSupervisorScreen> {
+  List<Map<String, dynamic>> _asesores = [];
+  bool _loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _cargar());
+  }
+
+  Future<void> _cargar() async {
+    setState(() => _loading = true);
+    try {
+      final asesor = ref.read(authViewModelProvider).asesor;
+      final supabase = SupabaseClientProvider.client;
+      final response = await supabase
+          .from('asesores_negocio')
+          .select(
+              'id, codigo_empleado, nombres, apellidos, visitas_mes_actual, creditos_mes_actual, agencia_id')
+          .eq('agencia_id', asesor?.agenciaId ?? '')
+          .eq('activo', true);
+      setState(() => _asesores = (response as List).cast<Map<String, dynamic>>());
+    } catch (_) {}
+    if (mounted) setState(() => _loading = false);
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Monitor de Supervisor')),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          const Text('Agencia: Huancayo | Fecha: Hoy',
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-          const SizedBox(height: 16),
-          _asesorCard(context, 'EJE-001', 'Carlos Mendoza', 8, 5, 3),
-          _asesorCard(context, 'EJE-002', 'María Torres', 7, 4, 3),
-          _asesorCard(context, 'EJE-003', 'José Huamán', 6, 6, 0),
-          _asesorCard(context, 'EJE-004', 'Lucía Rivas', 9, 3, 6),
+      appBar: AppBar(
+        title: const Text('Monitor de Supervisor'),
+        actions: [
+          IconButton(icon: const Icon(Icons.refresh), onPressed: _cargar),
         ],
       ),
+      body: _loading
+          ? const Center(child: CircularProgressIndicator())
+          : _asesores.isEmpty
+              ? const Center(child: Text('Sin asesores en tu agencia'))
+              : ListView(
+                  padding: const EdgeInsets.all(16),
+                  children: [
+                    Text('${_asesores.length} asesores en tu agencia',
+                        style: const TextStyle(
+                            fontWeight: FontWeight.bold, fontSize: 16)),
+                    const SizedBox(height: 16),
+                    ...(_asesores.map((a) => _asesorCard(context, a))),
+                  ],
+                ),
     );
   }
 
-  Widget _asesorCard(BuildContext context, String codigo, String nombre,
-      int total, int visitados, int pendientes) {
-    final progreso = total > 0 ? visitados / total : 0.0;
+  Widget _asesorCard(BuildContext context, Map<String, dynamic> a) {
+    final visitas = (a['visitas_mes_actual'] as num?)?.toInt() ?? 0;
+    final creditos = (a['creditos_mes_actual'] as num?)?.toInt() ?? 0;
+    final nombre = '${a['nombres'] ?? ''} ${a['apellidos'] ?? ''}';
+    final codigo = a['codigo_empleado'] ?? '';
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(12),
@@ -35,20 +79,18 @@ class MonitorSupervisorScreen extends StatelessWidget {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(nombre, style: const TextStyle(fontWeight: FontWeight.bold)),
-                Text(codigo, style: const TextStyle(color: BBVAColors.darkGray)),
+                Text(nombre,
+                    style: const TextStyle(fontWeight: FontWeight.bold)),
+                Text(codigo,
+                    style: const TextStyle(color: BBVAColors.darkGray)),
               ],
             ),
             const SizedBox(height: 8),
-            LinearProgressIndicator(value: progreso),
-            const SizedBox(height: 4),
             Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
-                Text('$visitados/$total visitados',
-                    style: const TextStyle(color: BBVAColors.successGreen)),
-                Text('$pendientes pendientes',
-                    style: const TextStyle(color: BBVAColors.warningAmber)),
+                _chip('Visitas', '$visitas', BBVAColors.primaryBlue),
+                _chip('Créditos', '$creditos', BBVAColors.successGreen),
               ],
             ),
             const SizedBox(height: 8),
@@ -56,17 +98,34 @@ class MonitorSupervisorScreen extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
                 IconButton(
-                  icon: const Icon(Icons.map),
-                  onPressed: () => context.push('/ruta'),
-                ),
-                IconButton(
                   icon: const Icon(Icons.assessment),
+                  tooltip: 'Ver productividad',
                   onPressed: () => context.push('/reporte-productividad'),
                 ),
               ],
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _chip(String label, String value, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withAlpha(25),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text('$label: ',
+              style: TextStyle(fontSize: 12, color: color)),
+          Text(value,
+              style: TextStyle(
+                  fontSize: 12, fontWeight: FontWeight.bold, color: color)),
+        ],
       ),
     );
   }

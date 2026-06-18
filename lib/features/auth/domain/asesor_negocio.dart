@@ -1,4 +1,5 @@
 class AsesorNegocio {
+  final String id;
   final String codigoEmpleado;
   final String nombres;
   final String apellidos;
@@ -11,6 +12,7 @@ class AsesorNegocio {
   final DateTime? ultimoAcceso;
 
   AsesorNegocio({
+    this.id = '',
     required this.codigoEmpleado,
     required this.nombres,
     required this.apellidos,
@@ -30,6 +32,7 @@ class AsesorNegocio {
 
   factory AsesorNegocio.fromJson(Map<String, dynamic> json) {
     return AsesorNegocio(
+      id: json['id'] ?? '',
       codigoEmpleado: json['codigo_empleado'] ?? '',
       nombres: json['nombres'] ?? '',
       apellidos: json['apellidos'] ?? '',

@@ -1,32 +1,28 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/constants/app_colors.dart';
+import 'transmision_viewmodel.dart';
 
-class TransmisionScreen extends StatefulWidget {
+class TransmisionScreen extends ConsumerStatefulWidget {
   final String solicitudId;
   const TransmisionScreen({super.key, required this.solicitudId});
 
   @override
-  State<TransmisionScreen> createState() => _TransmisionScreenState();
+  ConsumerState<TransmisionScreen> createState() => _TransmisionScreenState();
 }
 
-class _TransmisionScreenState extends State<TransmisionScreen> {
-  double _progreso = 0;
-  bool _transmitiendo = false;
-
-  Future<void> _iniciarTransmision() async {
-    setState(() {
-      _transmitiendo = true;
-      _progreso = 0;
-    });
-    for (int i = 1; i <= 5; i++) {
-      await Future.delayed(const Duration(milliseconds: 600));
-      setState(() => _progreso = i / 5);
-    }
-    setState(() => _transmitiendo = false);
+class _TransmisionScreenState extends ConsumerState<TransmisionScreen> {
+  @override
+  void initState() {
+    super.initState();
+    ref.read(transmisionViewModelProvider.notifier).reset();
   }
 
   @override
   Widget build(BuildContext context) {
+    final state = ref.watch(transmisionViewModelProvider);
+    final vm = ref.read(transmisionViewModelProvider.notifier);
+
     return Scaffold(
       appBar: AppBar(title: const Text('Transmisión')),
       body: Padding(
@@ -42,34 +38,58 @@ class _TransmisionScreenState extends State<TransmisionScreen> {
                 padding: const EdgeInsets.all(16),
                 child: Column(
                   children: [
-                    _itemTransmision(
-                        'Datos de Solicitud', true, null),
-                    _itemTransmision(
-                        'Documentos Adjuntos', _progreso >= 0.4, null),
-                    _itemTransmision(
-                        'Firma Digital', _progreso >= 0.6, null),
-                    _itemTransmision(
-                        'Confirmación', _progreso >= 0.8, null),
+                    _item('Validar datos solicitud', state.progreso >= 0.2),
+                    _item('Adjuntar documentos', state.progreso >= 0.4),
+                    _item('Procesar firma digital', state.progreso >= 0.6),
+                    _item('Transmitir a core', state.progreso >= 0.8),
+                    _item('Confirmar recepción', state.completado),
                   ],
                 ),
               ),
             ),
-            const SizedBox(height: 24),
-            if (_transmitiendo) ...[
-              LinearProgressIndicator(value: _progreso),
+            if (state.transmitiendo) ...[
+              const SizedBox(height: 16),
+              LinearProgressIndicator(value: state.progreso),
               const SizedBox(height: 8),
-              Text('${(_progreso * 100).toInt()}% completado'),
+              Text(state.mensaje ?? ''),
             ],
+            if (state.completado)
+              Padding(
+                padding: const EdgeInsets.only(top: 16),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(Icons.check_circle,
+                        color: BBVAColors.successGreen, size: 32),
+                    const SizedBox(width: 8),
+                    const Text('¡Transmisión exitosa!',
+                        style: TextStyle(
+                            color: BBVAColors.successGreen,
+                            fontWeight: FontWeight.bold)),
+                  ],
+                ),
+              ),
+            if (state.error)
+              Padding(
+                padding: const EdgeInsets.only(top: 16),
+                child: Text(state.mensaje ?? 'Error desconocido',
+                    style: const TextStyle(color: BBVAColors.errorRed)),
+              ),
             const SizedBox(height: 24),
             SizedBox(
               width: double.infinity,
               child: ElevatedButton.icon(
-                onPressed: _transmitiendo ? null : _iniciarTransmision,
-                icon: Icon(_transmitiendo
+                onPressed: state.transmitiendo
+                    ? null
+                    : () => vm.iniciar(widget.solicitudId),
+                icon: Icon(state.transmitiendo
                     ? Icons.hourglass_top
                     : Icons.cloud_upload),
-                label: Text(
-                    _transmitiendo ? 'Transmitiendo...' : 'Iniciar Transmisión'),
+                label: Text(state.transmitiendo
+                    ? 'Transmitiendo...'
+                    : state.completado
+                        ? 'Transmitir de nuevo'
+                        : 'Iniciar Transmisión'),
               ),
             ),
           ],
@@ -78,22 +98,16 @@ class _TransmisionScreenState extends State<TransmisionScreen> {
     );
   }
 
-  Widget _itemTransmision(String label, bool completado, bool? error) {
+  Widget _item(String label, bool completado) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8),
       child: Row(
         children: [
           Icon(
-            completado
-                ? Icons.check_circle
-                : error == true
-                    ? Icons.error
-                    : Icons.schedule,
+            completado ? Icons.check_circle : Icons.schedule,
             color: completado
                 ? BBVAColors.successGreen
-                : error == true
-                    ? BBVAColors.errorRed
-                    : BBVAColors.mediumGray,
+                : BBVAColors.mediumGray,
           ),
           const SizedBox(width: 12),
           Text(label),

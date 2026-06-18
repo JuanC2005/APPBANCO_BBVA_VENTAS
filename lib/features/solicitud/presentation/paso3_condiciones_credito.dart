@@ -1,20 +1,34 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/constants/app_colors.dart';
+import 'solicitud_viewmodel.dart';
 
-class Paso3CondicionesCredito extends StatefulWidget {
+class Paso3CondicionesCredito extends ConsumerStatefulWidget {
   final String solicitudId;
   const Paso3CondicionesCredito({super.key, required this.solicitudId});
 
   @override
-  State<Paso3CondicionesCredito> createState() => _Paso3CondicionesCreditoState();
+  ConsumerState<Paso3CondicionesCredito> createState() =>
+      _Paso3CondicionesCreditoState();
 }
 
-class _Paso3CondicionesCreditoState extends State<Paso3CondicionesCredito> {
-  final _montoController = TextEditingController(text: '5000');
+class _Paso3CondicionesCreditoState
+    extends ConsumerState<Paso3CondicionesCredito> {
+  final _montoController = TextEditingController();
   double _plazo = 12;
   double _tea = 18.5;
+  String _garantia = 'sin_garantia';
+  final String _tipoCuota = 'mensual';
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(solicitudViewModelProvider.notifier).cargar(widget.solicitudId);
+    });
+  }
 
   @override
   void dispose() {
@@ -32,6 +46,15 @@ class _Paso3CondicionesCreditoState extends State<Paso3CondicionesCredito> {
 
   @override
   Widget build(BuildContext context) {
+    final state = ref.watch(solicitudViewModelProvider);
+    final s = state.solicitud;
+    if (s != null) {
+      if (_montoController.text.isEmpty && s.montoSolicitado > 0) {
+        _montoController.text = s.montoSolicitado.toStringAsFixed(0);
+        _plazo = s.plazoMeses.toDouble();
+        _tea = s.teaReferencial ?? 18.5;
+      }
+    }
     return Scaffold(
       appBar: AppBar(title: const Text('Paso 3: Condiciones')),
       body: Padding(
@@ -39,24 +62,24 @@ class _Paso3CondicionesCreditoState extends State<Paso3CondicionesCredito> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('Monto Solicitado', style: TextStyle(fontWeight: FontWeight.bold)),
+            const Text('Monto Solicitado',
+                style: TextStyle(fontWeight: FontWeight.bold)),
             const SizedBox(height: 8),
             TextField(
               controller: _montoController,
               keyboardType: TextInputType.number,
               decoration: InputDecoration(
                 prefixText: 'S/ ',
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10)),
               ),
               onChanged: (_) => setState(() {}),
             ),
             const SizedBox(height: 16),
-            const Text('Plazo (meses)', style: TextStyle(fontWeight: FontWeight.bold)),
+            const Text('Plazo (meses)',
+                style: TextStyle(fontWeight: FontWeight.bold)),
             Slider(
-              value: _plazo,
-              min: 3,
-              max: 48,
-              divisions: 15,
+              value: _plazo, min: 3, max: 48, divisions: 15,
               label: '${_plazo.toInt()} meses',
               onChanged: (v) => setState(() => _plazo = v),
             ),
@@ -65,15 +88,24 @@ class _Paso3CondicionesCreditoState extends State<Paso3CondicionesCredito> {
             const SizedBox(height: 16),
             const Text('TEA', style: TextStyle(fontWeight: FontWeight.bold)),
             Slider(
-              value: _tea,
-              min: 10,
-              max: 50,
-              divisions: 40,
+              value: _tea, min: 10, max: 50, divisions: 40,
               label: '${_tea.toStringAsFixed(1)}%',
               onChanged: (v) => setState(() => _tea = v),
             ),
             Text('${_tea.toStringAsFixed(1)}%',
                 style: const TextStyle(color: BBVAColors.primaryBlue)),
+            const SizedBox(height: 16),
+            DropdownButtonFormField<String>(
+              value: _garantia,
+              decoration: const InputDecoration(labelText: 'Garantía'),
+              items: const [
+                DropdownMenuItem(value: 'sin_garantia', child: Text('Sin garantía')),
+                DropdownMenuItem(value: 'aval', child: Text('Aval')),
+                DropdownMenuItem(value: 'hipotecaria', child: Text('Hipotecaria')),
+                DropdownMenuItem(value: 'prendaria', child: Text('Prendaria')),
+              ],
+              onChanged: (v) => setState(() => _garantia = v ?? 'sin_garantia'),
+            ),
             const SizedBox(height: 16),
             Card(
               color: BBVAColors.lightBlue,
@@ -81,8 +113,10 @@ class _Paso3CondicionesCreditoState extends State<Paso3CondicionesCredito> {
                 padding: const EdgeInsets.all(16),
                 child: Column(
                   children: [
-                    Text('Cuota Mensual Estimada: S/ ${_cuotaMensual.toStringAsFixed(2)}',
-                        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                    Text(
+                        'Cuota Mensual: S/ ${_cuotaMensual.toStringAsFixed(2)}',
+                        style: const TextStyle(
+                            fontSize: 18, fontWeight: FontWeight.bold)),
                     const Text('(Incluye seguros y comisiones)',
                         style: TextStyle(color: BBVAColors.darkGray)),
                   ],
@@ -101,7 +135,23 @@ class _Paso3CondicionesCreditoState extends State<Paso3CondicionesCredito> {
                 const SizedBox(width: 16),
                 Expanded(
                   child: ElevatedButton(
-                    onPressed: () => context.push('/solicitud/paso4/${widget.solicitudId}'),
+                    onPressed: s == null
+                        ? null
+                        : () {
+                            ref
+                                .read(solicitudViewModelProvider.notifier)
+                                .guardarPaso3({
+                              'monto_solicitado':
+                                  double.tryParse(_montoController.text) ?? 0,
+                              'plazo_meses': _plazo.toInt(),
+                              'tea_referencial': _tea,
+                              'garantia': _garantia,
+                              'tipo_cuota': _tipoCuota,
+                              'cuota_estimada': _cuotaMensual,
+                            });
+                            context.push(
+                                '/solicitud/paso4/${widget.solicitudId}');
+                          },
                     child: const Text('Siguiente'),
                   ),
                 ),

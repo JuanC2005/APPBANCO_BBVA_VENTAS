@@ -20,7 +20,10 @@ class _CarteraScreenState extends ConsumerState<CarteraScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      ref.read(carteraViewModelProvider.notifier).cargarCartera('EJE-001');
+      final asesor = ref.read(authViewModelProvider).asesor;
+      if (asesor != null) {
+        ref.read(carteraViewModelProvider.notifier).cargarCartera(asesor.id);
+      }
     });
   }
 
@@ -67,7 +70,35 @@ class _CarteraScreenState extends ConsumerState<CarteraScreen> {
           ),
           IconButton(
             icon: const Icon(Icons.logout),
-            onPressed: () => ref.read(authViewModelProvider.notifier).logout(),
+            onPressed: () async {
+              final vm = ref.read(authViewModelProvider.notifier);
+              final pendientes = await vm.logout(force: false);
+              if (pendientes > 0 && context.mounted) {
+                final force = await showDialog<bool>(
+                  context: context,
+                  builder: (ctx) => AlertDialog(
+                    title: const Text('Cerrar sesión'),
+                    content: Text(
+                      'Tienes $pendientes solicitudes sin sincronizar. '
+                      '¿Cerrar de todas formas?',
+                    ),
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.pop(ctx, false),
+                        child: const Text('Cancelar'),
+                      ),
+                      TextButton(
+                        onPressed: () => Navigator.pop(ctx, true),
+                        child: const Text('Cerrar'),
+                      ),
+                    ],
+                  ),
+                );
+                if (force == true && context.mounted) {
+                  await vm.logout(force: true);
+                }
+              }
+            },
           ),
         ],
       ),
@@ -183,15 +214,27 @@ class _VisitaCard extends StatelessWidget {
       {required this.visita, required this.onTap, required this.onResultado});
 
   Color _tipoColor() {
-    switch (visita.tipoVisita) {
+    switch (visita.tipoGestion) {
+      case 'RENOVACION':
       case 'renovacion':
         return BBVAColors.tagRenovacion;
+      case 'AMPLIACION':
       case 'ampliacion':
         return BBVAColors.tagAmpliacion;
+      case 'NUEVA':
       case 'nueva':
         return BBVAColors.tagNueva;
       default:
         return BBVAColors.tagSeguimiento;
+    }
+  }
+
+  String _tipoLabel() {
+    switch (visita.tipoGestion.toUpperCase()) {
+      case 'RENOVACION': return 'Renovación';
+      case 'AMPLIACION': return 'Ampliación';
+      case 'NUEVA': return 'Nueva';
+      default: return 'Seguimiento';
     }
   }
 
@@ -240,7 +283,7 @@ class _VisitaCard extends StatelessWidget {
                             color: _tipoColor().withAlpha(30),
                             borderRadius: BorderRadius.circular(4),
                           ),
-                          child: Text(visita.tipoVisita.toUpperCase(),
+                          child: Text(_tipoLabel(),
                               style: TextStyle(
                                   fontSize: 11, color: _tipoColor())),
                         ),
@@ -258,9 +301,9 @@ class _VisitaCard extends StatelessWidget {
                         ),
                       ],
                     ),
-                    if (visita.montoAnterior != null) ...[
+                    if (visita.montoReferencial != null) ...[
                       const SizedBox(height: 4),
-                      Text('Monto anterior: S/ ${visita.montoAnterior!.toStringAsFixed(2)}',
+                      Text('Monto ref: S/ ${visita.montoReferencial!.toStringAsFixed(2)}',
                           style: const TextStyle(
                               fontSize: 12, color: BBVAColors.darkGray)),
                     ],
@@ -270,7 +313,7 @@ class _VisitaCard extends StatelessWidget {
               IconButton(
                 icon: const Icon(Icons.check_circle_outline,
                     color: BBVAColors.successGreen),
-                onPressed: visita.resultado == null ? onResultado : null,
+                onPressed: visita.resultadoVisita == null ? onResultado : null,
               ),
             ],
           ),

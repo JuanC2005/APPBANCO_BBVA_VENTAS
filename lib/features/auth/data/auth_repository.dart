@@ -1,22 +1,28 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../../../core/storage/supabase/supabase_client.dart';
+import '../../../core/storage/local_db.dart';
 import '../domain/asesor_negocio.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 final authRepositoryProvider = Provider<AuthRepository>((ref) {
-  return AuthRepository();
+  return AuthRepository(ref.watch(localDbProvider));
 });
 
 class AuthRepository {
   final _storage = const FlutterSecureStorage();
   static const _userKey = 'user_data';
+  final LocalDatabase _localDb;
 
+  AuthRepository(this._localDb);
+
+  /// Login por email (RF-01, RF-02).
+  /// Autentica contra Supabase Auth con email y password.
   Future<AsesorNegocio?> login(String email, String password) async {
     final supabase = SupabaseClientProvider.client;
     try {
       final response = await supabase.auth.signInWithPassword(
-        email: email,
+        email: email.trim(),
         password: password,
       );
       if (response.user == null) throw Exception('Usuario no encontrado');
@@ -76,8 +82,19 @@ class AuthRepository {
   }
 
   Future<void> logout() async {
-    await SupabaseClientProvider.client.auth.signOut();
+    try {
+      await _localDb.limpiarTodo().timeout(const Duration(seconds: 5));
+    } catch (_) {}
+    try {
+      await SupabaseClientProvider.client.auth
+          .signOut()
+          .timeout(const Duration(seconds: 10));
+    } catch (_) {}
     await _storage.delete(key: _userKey);
+  }
+
+  Future<List<Map<String, dynamic>>> obtenerPendientesSync() async {
+    return _localDb.obtenerVisitasPendientes();
   }
 
   Future<AsesorNegocio?> getSavedSession() async {
@@ -96,6 +113,9 @@ class AuthRepository {
           .single();
       return AsesorNegocio.fromJson(response);
     } catch (_) {
+      try {
+        await SupabaseClientProvider.client.auth.signOut();
+      } catch (_) {}
       return null;
     }
   }

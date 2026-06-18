@@ -5,16 +5,24 @@ import '../../../core/constants/app_colors.dart';
 class AdminSidebar extends StatelessWidget {
   final String? selectedTable;
   final bool onDashboard;
+  final bool onRoles;
+  final bool onReportes;
   final ValueChanged<String> onTableSelected;
   final VoidCallback onDashboardSelected;
+  final VoidCallback onRolesSelected;
+  final VoidCallback onReportesSelected;
   final VoidCallback? onLogout;
 
   const AdminSidebar({
     super.key,
     this.selectedTable,
     this.onDashboard = true,
+    this.onRoles = false,
+    this.onReportes = false,
     required this.onTableSelected,
     required this.onDashboardSelected,
+    required this.onRolesSelected,
+    required this.onReportesSelected,
     this.onLogout,
   });
 
@@ -35,6 +43,19 @@ class AdminSidebar extends StatelessWidget {
                   title: 'Dashboard',
                   selected: onDashboard,
                   onTap: onDashboardSelected,
+                ),
+                const Divider(color: Colors.white24, height: 1),
+                _buildMenuItem(
+                  icon: Icons.admin_panel_settings,
+                  title: 'Roles y Permisos',
+                  selected: onRoles,
+                  onTap: onRolesSelected,
+                ),
+                _buildMenuItem(
+                  icon: Icons.assessment,
+                  title: 'Reportes',
+                  selected: onReportes,
+                  onTap: onReportesSelected,
                 ),
                 const Divider(color: Colors.white24, height: 1),
                 ..._buildCategorySections(),

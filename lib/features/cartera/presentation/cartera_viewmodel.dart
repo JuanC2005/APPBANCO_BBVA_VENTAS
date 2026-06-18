@@ -7,16 +7,12 @@ class CarteraState {
   final bool isLoading;
   final String? error;
   final String filtroBusqueda;
-  final String? filtroTipo;
-  final String? filtroResultado;
 
   const CarteraState({
     this.visitas = const [],
     this.isLoading = false,
     this.error,
     this.filtroBusqueda = '',
-    this.filtroTipo,
-    this.filtroResultado,
   });
 
   CarteraState copyWith({
@@ -24,37 +20,24 @@ class CarteraState {
     bool? isLoading,
     String? error,
     String? filtroBusqueda,
-    String? filtroTipo,
-    String? filtroResultado,
   }) {
     return CarteraState(
       visitas: visitas ?? this.visitas,
       isLoading: isLoading ?? this.isLoading,
       error: error,
       filtroBusqueda: filtroBusqueda ?? this.filtroBusqueda,
-      filtroTipo: filtroTipo ?? this.filtroTipo,
-      filtroResultado: filtroResultado ?? this.filtroResultado,
     );
   }
 
   List<CarteraVisita> get visitasFiltradas {
-    var result = visitas;
-    if (filtroBusqueda.isNotEmpty) {
-      result = result.where((v) =>
-          v.clienteNombre.toLowerCase().contains(filtroBusqueda.toLowerCase())).toList();
-    }
-    if (filtroTipo != null) {
-      result = result.where((v) => v.tipoVisita == filtroTipo).toList();
-    }
-    if (filtroResultado != null) {
-      result = result.where((v) => v.resultado == filtroResultado || (v.resultado == null && filtroResultado == 'pendiente')).toList();
-    }
-    return result;
+    if (filtroBusqueda.isEmpty) return visitas;
+    return visitas.where((v) =>
+        v.clienteNombre.toLowerCase().contains(filtroBusqueda.toLowerCase())).toList();
   }
 
   int get totalVisitas => visitas.length;
-  int get visitados => visitas.where((v) => v.resultado != null).length;
-  int get pendientes => visitas.where((v) => v.resultado == null).length;
+  int get visitados => visitas.where((v) => v.resultadoVisita != null).length;
+  int get pendientes => visitas.where((v) => v.resultadoVisita == null).length;
 }
 
 class CarteraViewModel extends StateNotifier<CarteraState> {
@@ -68,8 +51,7 @@ class CarteraViewModel extends StateNotifier<CarteraState> {
       final visitas = await _repository.obtenerCarteraDiaria(asesorId);
       state = state.copyWith(visitas: visitas, isLoading: false);
     } catch (e) {
-      state = state.copyWith(
-          isLoading: false, error: 'Error al cargar cartera: $e');
+      state = state.copyWith(isLoading: false, error: 'Error al cargar cartera: $e');
     }
   }
 
@@ -77,21 +59,13 @@ class CarteraViewModel extends StateNotifier<CarteraState> {
     state = state.copyWith(filtroBusqueda: filtro);
   }
 
-  void setFiltroTipo(String? tipo) {
-    state = state.copyWith(filtroTipo: tipo, filtroResultado: null);
-  }
-
-  void setFiltroResultado(String? resultado) {
-    state = state.copyWith(filtroResultado: resultado, filtroTipo: null);
-  }
-
   Future<void> registrarResultado(
       String visitaId, String resultado, String observacion) async {
     final data = {
       'id': visitaId,
-      'resultado': resultado,
-      'observacion': observacion,
-      'fecha_visita': DateTime.now().toIso8601String(),
+      'resultado_visita': resultado,
+      'observacion_visita': observacion,
+      'timestamp_visita': DateTime.now().toIso8601String(),
     };
     await _repository.registrarResultadoVisita(data);
     final idx = state.visitas.indexWhere((v) => v.id == visitaId);
