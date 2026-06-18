@@ -1,45 +1,36 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../../core/storage/supabase/supabase_client.dart';
+import '../../../core/network/api_client.dart';
 import '../../../core/network/network_monitor.dart';
 
 final transmisionRepositoryProvider = Provider<TransmisionRepository>((ref) {
-  return TransmisionRepository(ref.watch(networkMonitorProvider));
+  return TransmisionRepository(
+    ref.watch(networkMonitorProvider),
+    ref.watch(apiClientProvider),
+  );
 });
 
 class TransmisionRepository {
   final NetworkMonitor _networkMonitor;
+  final ApiClient _api;
 
-  TransmisionRepository(this._networkMonitor);
+  TransmisionRepository(this._networkMonitor, this._api);
 
   Future<bool> transmitir(String solicitudId) async {
     if (!_networkMonitor.isOnline) return false;
-
-    final supabase = SupabaseClientProvider.client;
     try {
-      await supabase.rpc('transmitir_solicitud', params: {
-        'p_solicitud_id': solicitudId,
-      });
+      await _api.post('/solicitudes/$solicitudId/enviar', {});
       return true;
     } catch (_) {
-      try {
-        await supabase.from('solicitudes_credito').update({
-          'estado': 'transmitido',
-          'updated_at': DateTime.now().toIso8601String(),
-        }).eq('id', solicitudId);
-        return true;
-      } catch (_) {
-        return false;
-      }
+      return false;
     }
   }
 
   Future<bool> actualizarEstado(String solicitudId, String estado) async {
-    final supabase = SupabaseClientProvider.client;
     try {
-      await supabase.from('solicitudes_credito').update({
-        'estado': estado,
-        'updated_at': DateTime.now().toIso8601String(),
-      }).eq('id', solicitudId);
+      await _api.put(
+        '/solicitudes/$solicitudId/estado',
+        {'estado': estado},
+      );
       return true;
     } catch (_) {
       return false;

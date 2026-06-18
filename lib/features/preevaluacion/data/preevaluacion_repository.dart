@@ -1,38 +1,45 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../../core/storage/supabase/supabase_client.dart';
+import '../../../core/network/api_client.dart';
 import '../domain/preevaluacion_cliente.dart';
 
 final preevaluacionRepositoryProvider =
     Provider<PreevaluacionRepository>((ref) {
-  return PreevaluacionRepository();
+  return PreevaluacionRepository(ref.watch(apiClientProvider));
 });
 
 class PreevaluacionRepository {
+  final ApiClient _api;
+
+  PreevaluacionRepository(this._api);
+
   Future<List<PreevaluacionCliente>> obtenerPreevaluaciones(
       String asesorId) async {
-    final supabase = SupabaseClientProvider.client;
-    final response = await supabase.from('vw_cartera_completa').select(
-        'cliente_id, cliente_nombre, numero_documento, score_crediticio, '
-        'segmento, monto_preaprobado, ingreso_mensual_est, calificacion_sbs')
-        .eq('asesor_id', asesorId)
-        .order('score_crediticio', ascending: false);
-    return (response as List).map((j) => PreevaluacionCliente.fromJson({
-      ...j,
-      'score': j['score_crediticio'],
-      'monto_max_sugerido': j['monto_preaprobado'],
-      'recomendacion': ((j['score_crediticio'] as num?)?.toDouble() ?? 0) >= 85
-          ? 'aprobado_preaprobado'
-          : ((j['score_crediticio'] as num?)?.toDouble() ?? 0) >= 70
-              ? 'recomendado'
-              : 'evaluar_presencial',
-      'ingreso_mensual_est': j['ingreso_mensual_est'],
-    })).toList();
+    final list = await _api.getList('/cartera/completa');
+    return list
+        .map((j) {
+          final m = j as Map<String, dynamic>;
+          final score = (m['score_crediticio'] as num?)?.toDouble() ?? 0;
+          return PreevaluacionCliente(
+            clienteId: m['cliente_id'] ?? '',
+            clienteNombre: m['cliente_nombre'] ?? '',
+            numeroDocumento: m['numero_documento'],
+            score: score,
+            segmento: m['segmento'] ?? 'C',
+            montoMaxSugerido: (m['monto_preaprobado'] as num?)?.toDouble(),
+            recomendacion: score >= 85
+                ? 'aprobado_preaprobado'
+                : score >= 70
+                    ? 'recomendado'
+                    : 'evaluar_presencial',
+            ingresoMensual: (m['ingreso_mensual_est'] as num?)?.toDouble(),
+            calificacionSbs: m['calificacion_sbs'],
+          );
+        })
+        .toList()
+      ..sort((a, b) => b.score.compareTo(a.score));
   }
 
   Future<void> recalcularScore(String clienteId) async {
-    final supabase = SupabaseClientProvider.client;
-    await supabase.rpc('calcular_score_crediticio', params: {
-      'p_cliente_id': clienteId,
-    });
+    throw UnimplementedError('Usar el backend para recalcular score');
   }
 }

@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_strings.dart';
-import '../../../core/storage/supabase/supabase_client.dart';
+import '../../../core/network/api_client.dart';
 import 'login_viewmodel.dart';
 
 class RegisterScreen extends ConsumerStatefulWidget {
@@ -49,13 +49,11 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
 
   Future<void> _cargarAgencias() async {
     try {
-      final response = await SupabaseClientProvider.client
-          .from('agencias')
-          .select('id, codigo, nombre')
-          .order('nombre');
+      final api = ref.read(apiClientProvider);
+      final list = await api.getList('/agencias/');
       if (mounted) {
         setState(() {
-          _agencias = List<Map<String, dynamic>>.from(response);
+          _agencias = list.cast<Map<String, dynamic>>();
           _loadingAgencias = false;
         });
       }

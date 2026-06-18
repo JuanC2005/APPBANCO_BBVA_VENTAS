@@ -104,7 +104,9 @@ class CarteraVisita {
       lng: (json['lng'] as num?)?.toDouble(),
       calificacionSbs: json['calificacion_sbs'],
       estadoCliente: json['estado_cliente'],
-      scoreCrediticio: (json['score_crediticio'] as num?)?.toInt() ?? 0,
+      scoreCrediticio: (json['score_crediticio'] is num
+            ? (json['score_crediticio'] as num).toInt()
+            : int.tryParse(json['score_crediticio']?.toString() ?? '') ?? 0),
       segmento: json['segmento'] ?? 'N/A',
       montoPreaprobado: (json['monto_preaprobado'] as num?)?.toDouble(),
       plazoSugerido: (json['plazo_sugerido_meses'] as num?)?.toInt(),

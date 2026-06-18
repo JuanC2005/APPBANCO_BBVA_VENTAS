@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/constants/app_colors.dart';
-import '../../../core/storage/supabase/supabase_client.dart';
+import '../../../core/network/api_client.dart';
 import '../../auth/presentation/login_viewmodel.dart';
 
 class ReporteProductividadScreen extends ConsumerStatefulWidget {
@@ -35,24 +35,13 @@ class _ReporteProductividadScreenState
     try {
       final asesor = ref.read(authViewModelProvider).asesor;
       if (asesor == null) return;
-      final supabase = SupabaseClientProvider.client;
+      final api = ref.read(apiClientProvider);
 
-      final asesorData = await supabase
-          .from('asesores_negocio')
-          .select('visitas_mes_actual, creditos_mes_actual, monto_mes_actual')
-          .eq('id', asesor.id)
-          .single();
-
-      _totalVisitas = (asesorData['visitas_mes_actual'] as num?)?.toInt() ?? 0;
-      _creditos = (asesorData['creditos_mes_actual'] as num?)?.toInt() ?? 0;
-      _montoTotal =
-          (asesorData['monto_mes_actual'] as num?)?.toDouble() ?? 0;
-
-      final solicitudes = await supabase
-          .from('solicitudes_credito')
-          .select('id')
-          .eq('asesor_id', asesor.id);
-      _solicitudes = (solicitudes as List).length;
+      final result = await api.get('/reportes/productividad');
+      _totalVisitas = (result['visitas_mes_actual'] as num?)?.toInt() ?? 0;
+      _creditos = (result['creditos_mes_actual'] as num?)?.toInt() ?? 0;
+      _montoTotal = (result['monto_mes_actual'] as num?)?.toDouble() ?? 0;
+      _solicitudes = (result['total_solicitudes'] as num?)?.toInt() ?? 0;
 
       _semanas = [];
       for (var i = 0; i < 4; i++) {

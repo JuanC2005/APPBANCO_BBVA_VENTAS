@@ -1,6 +1,6 @@
 import 'dart:convert';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../../core/storage/supabase/supabase_client.dart';
+import '../../../core/network/api_client.dart';
 import '../../../core/storage/local_db.dart';
 import '../../../core/network/network_monitor.dart';
 import '../domain/cartera_visita.dart';
@@ -9,31 +9,31 @@ final carteraRepositoryProvider = Provider<CarteraRepository>((ref) {
   return CarteraRepository(
     ref.watch(localDbProvider),
     ref.watch(networkMonitorProvider),
+    ref.watch(apiClientProvider),
   );
 });
 
 class CarteraRepository {
   final LocalDatabase _localDb;
   final NetworkMonitor _networkMonitor;
+  final ApiClient _api;
 
-  CarteraRepository(this._localDb, this._networkMonitor);
+  CarteraRepository(this._localDb, this._networkMonitor, this._api);
 
   Future<List<CarteraVisita>> obtenerCarteraDiaria(String asesorId) async {
     if (_networkMonitor.isOnline) {
       try {
-        final supabase = SupabaseClientProvider.client;
-        final response = await supabase
-            .from('vw_cartera_completa')
-            .select()
-            .eq('asesor_id', asesorId)
-            .order('score_prioridad', ascending: true)
-            .timeout(const Duration(seconds: 10));
-        final visitas = (response as List).map((j) => CarteraVisita.fromJson(j)).toList();
+        final list = await _api.getList('/cartera/completa');
+        final visitas = list
+            .map((j) => CarteraVisita.fromJson(j as Map<String, dynamic>))
+            .toList();
         await _localDb.cacheCartera(
           visitas.map((v) => v.toJson()).toList(),
         );
         return visitas;
-      } catch (_) {}
+      } catch (e) {
+        print('CarteraRepository.obtenerCarteraDiaria: error remoto: $e');
+      }
     }
     final cache = await _localDb.obtenerCarteraCache();
     final rows = cache.map((r) {
@@ -51,8 +51,13 @@ class CarteraRepository {
     await _localDb.guardarVisitaPendiente(data);
     if (_networkMonitor.isOnline) {
       try {
-        final supabase = SupabaseClientProvider.client;
-        await supabase.from('cartera_diaria').upsert(data);
+        final visitaId = data['cartera_id'] ?? data['id'];
+        await _api.put('/cartera/$visitaId/visita', {
+          'resultado_visita': data['resultado'],
+          'observacion_visita': data['observacion'],
+          'lat_visita': data['lat'],
+          'lng_visita': data['lng'],
+        });
         await _localDb.marcarSincronizada(data['id']);
       } catch (_) {}
     }
@@ -63,21 +68,28 @@ class CarteraRepository {
     final pendientes = await _localDb.obtenerVisitasPendientes();
     for (final data in pendientes) {
       try {
-        final supabase = SupabaseClientProvider.client;
-        await supabase.from('cartera_diaria').upsert(data);
+        final visitaId = data['cartera_id'] ?? data['id'];
+        await _api.put('/cartera/$visitaId/visita', {
+          'resultado_visita': data['resultado'],
+          'observacion_visita': data['observacion'],
+          'lat_visita': data['lat'],
+          'lng_visita': data['lng'],
+        });
         await _localDb.marcarSincronizada(data['id']);
       } catch (_) {}
     }
   }
 
   Future<List<CarteraVisita>> obtenerVisitados(String asesorId) async {
-    final supabase = SupabaseClientProvider.client;
-    final response = await supabase
-        .from('cartera_diaria')
-        .select()
-        .eq('asesor_id', asesorId)
-        .not('resultado_visita', 'is', null)
-        .order('timestamp_visita', ascending: false);
-    return (response as List).map((j) => CarteraVisita.fromJson(j)).toList();
+    final list = await _api.getList('/cartera/completa');
+    return list
+        .map((j) => CarteraVisita.fromJson(j as Map<String, dynamic>))
+        .where((v) => v.resultadoVisita != null)
+        .toList()
+      ..sort((a, b) {
+        final ta = a.timestampVisita ?? DateTime(2000);
+        final tb = b.timestampVisita ?? DateTime(2000);
+        return tb.compareTo(ta);
+      });
   }
 }

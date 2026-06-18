@@ -20,6 +20,7 @@ dependencies:
 
   # Backend
   supabase_flutter: ^2.8.4
+  http: ^1.2.2
 
   # Local Storage
   sqflite: ^2.3.3

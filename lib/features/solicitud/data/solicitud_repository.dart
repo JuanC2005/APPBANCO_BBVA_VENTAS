@@ -1,5 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../../core/storage/supabase/supabase_client.dart';
+import '../../../core/network/api_client.dart';
 import '../../../core/storage/local_db.dart';
 import '../../../core/network/network_monitor.dart';
 import '../domain/solicitud.dart';
@@ -8,14 +8,16 @@ final solicitudRepositoryProvider = Provider<SolicitudRepository>((ref) {
   return SolicitudRepository(
     ref.watch(localDbProvider),
     ref.watch(networkMonitorProvider),
+    ref.watch(apiClientProvider),
   );
 });
 
 class SolicitudRepository {
   final LocalDatabase _localDb;
   final NetworkMonitor _networkMonitor;
+  final ApiClient _api;
 
-  SolicitudRepository(this._localDb, this._networkMonitor);
+  SolicitudRepository(this._localDb, this._networkMonitor, this._api);
 
   Future<SolicitudCredito> crearBorrador({
     required String asesorId,
@@ -59,25 +61,21 @@ class SolicitudRepository {
   }
 
   Future<void> enviarSolicitud(SolicitudCredito solicitud) async {
-    final supabase = SupabaseClientProvider.client;
     final data = solicitud.toJson();
     data.remove('id');
     data['estado'] = 'enviado';
     data['pendiente_sync'] = false;
 
-    await supabase.from('solicitudes_credito').insert(data);
+    await _api.post('/solicitudes/', data);
     await _localDb.eliminarBorrador(solicitud.id);
   }
 
   Future<List<SolicitudCredito>> listarEnviadas(String asesorId) async {
-    final supabase = SupabaseClientProvider.client;
-    final response = await supabase
-        .from('solicitudes_credito')
-        .select()
-        .eq('asesor_id', asesorId)
-        .neq('estado', 'borrador')
-        .order('created_at', ascending: false);
-    return (response as List).map((j) => SolicitudCredito.fromJson(j)).toList();
+    final list = await _api.getList('/solicitudes/');
+    return list
+        .map((j) => SolicitudCredito.fromJson(j as Map<String, dynamic>))
+        .where((s) => s.estado != 'borrador')
+        .toList();
   }
 
   Future<void> syncPendientes() async {

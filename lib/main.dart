@@ -7,10 +7,10 @@ import 'features/admin/admin_app.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await SupabaseClientProvider.initialize();
-  runApp(
-    kIsWeb
-        ? const AdminApp()
-        : const ProviderScope(child: BBVAFuerzaVentasApp()),
-  );
+  if (kIsWeb) {
+    await SupabaseClientProvider.initialize();
+    runApp(const AdminApp());
+  } else {
+    runApp(const ProviderScope(child: BBVAFuerzaVentasApp()));
+  }
 }

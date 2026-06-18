@@ -1,15 +1,19 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../../core/storage/supabase/supabase_client.dart';
+import '../../../core/network/api_client.dart';
 import '../../../core/network/network_monitor.dart';
 
 final buroRepositoryProvider = Provider<BuroRepository>((ref) {
-  return BuroRepository(ref.watch(networkMonitorProvider));
+  return BuroRepository(
+    ref.watch(networkMonitorProvider),
+    ref.watch(apiClientProvider),
+  );
 });
 
 class BuroRepository {
   final NetworkMonitor _networkMonitor;
+  final ApiClient _api;
 
-  BuroRepository(this._networkMonitor);
+  BuroRepository(this._networkMonitor, this._api);
 
   Future<Map<String, dynamic>> consultar({
     required String asesorId,
@@ -17,41 +21,22 @@ class BuroRepository {
     required String dni,
     required String firmaConsentimiento,
   }) async {
-    final supabase = SupabaseClientProvider.client;
-
     if (_networkMonitor.isOnline) {
       try {
-        final result = await supabase.rpc('consultar_buro', params: {
-          'p_asesor_id': asesorId,
-          'p_cliente_id': clienteId,
-          'p_dni': dni,
-        });
-        final data = result as Map<String, dynamic>;
-        await supabase.from('consultas_buro').insert({
-          'asesor_id': asesorId,
+        final result = await _api.post('/buro/consultar', {
           'cliente_id': clienteId,
-          'dni_consultado': dni,
-          'calificacion_sbs': data['calificacion_sbs'],
-          'entidades_con_deuda': data['entidades_con_deuda'],
-          'deuda_total_pen': data['deuda_total_pen'],
-          'resultado_json': data,
+          'dni': dni,
           'firma_consentimiento_base64': firmaConsentimiento,
         });
-        return data;
+        return result;
       } catch (_) {}
     }
     return _resultadoSimulado();
   }
 
   Future<List<Map<String, dynamic>>> historial(String clienteId) async {
-    final supabase = SupabaseClientProvider.client;
-    final response = await supabase
-        .from('consultas_buro')
-        .select()
-        .eq('cliente_id', clienteId)
-        .order('created_at', ascending: false)
-        .limit(5);
-    return (response as List).cast<Map<String, dynamic>>();
+    final list = await _api.getList('/buro/historial/$clienteId');
+    return list.cast<Map<String, dynamic>>();
   }
 
   Map<String, dynamic> _resultadoSimulado() {

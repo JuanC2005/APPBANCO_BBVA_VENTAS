@@ -2,8 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/constants/app_colors.dart';
-import '../../../core/storage/supabase/supabase_client.dart';
-import '../../auth/presentation/login_viewmodel.dart';
+import '../../../core/network/api_client.dart';
 
 class MonitorSupervisorScreen extends ConsumerStatefulWidget {
   const MonitorSupervisorScreen({super.key});
@@ -27,15 +26,9 @@ class _MonitorSupervisorScreenState
   Future<void> _cargar() async {
     setState(() => _loading = true);
     try {
-      final asesor = ref.read(authViewModelProvider).asesor;
-      final supabase = SupabaseClientProvider.client;
-      final response = await supabase
-          .from('asesores_negocio')
-          .select(
-              'id, codigo_empleado, nombres, apellidos, visitas_mes_actual, creditos_mes_actual, agencia_id')
-          .eq('agencia_id', asesor?.agenciaId ?? '')
-          .eq('activo', true);
-      setState(() => _asesores = (response as List).cast<Map<String, dynamic>>());
+      final api = ref.read(apiClientProvider);
+      final list = await api.getList('/reportes/supervisor/monitor');
+      setState(() => _asesores = list.cast<Map<String, dynamic>>());
     } catch (_) {}
     if (mounted) setState(() => _loading = false);
   }
