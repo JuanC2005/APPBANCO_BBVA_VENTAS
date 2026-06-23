@@ -10,6 +10,7 @@ import 'table_list_screen.dart';
 import 'admin_login_screen.dart';
 import 'admin_role_management_screen.dart';
 import 'admin_reportes_screen.dart';
+import 'comite_screen.dart';
 
 class AdminApp extends StatelessWidget {
   const AdminApp({super.key});
@@ -115,6 +116,7 @@ class _AdminShellState extends State<AdminShell> {
   bool _onDashboard = true;
   bool _onRoles = false;
   bool _onReportes = false;
+  bool _onComite = false;
   String? _selectedTable;
 
   void _goToDashboard() {
@@ -122,6 +124,7 @@ class _AdminShellState extends State<AdminShell> {
       _onDashboard = true;
       _onRoles = false;
       _onReportes = false;
+      _onComite = false;
       _selectedTable = null;
     });
   }
@@ -131,6 +134,7 @@ class _AdminShellState extends State<AdminShell> {
       _onDashboard = false;
       _onRoles = true;
       _onReportes = false;
+      _onComite = false;
       _selectedTable = null;
     });
   }
@@ -140,6 +144,17 @@ class _AdminShellState extends State<AdminShell> {
       _onDashboard = false;
       _onRoles = false;
       _onReportes = true;
+      _onComite = false;
+      _selectedTable = null;
+    });
+  }
+
+  void _goToComite() {
+    setState(() {
+      _onDashboard = false;
+      _onRoles = false;
+      _onReportes = false;
+      _onComite = true;
       _selectedTable = null;
     });
   }
@@ -149,6 +164,7 @@ class _AdminShellState extends State<AdminShell> {
       _onDashboard = false;
       _onRoles = false;
       _onReportes = false;
+      _onComite = false;
       _selectedTable = tableName;
     });
   }
@@ -163,7 +179,9 @@ class _AdminShellState extends State<AdminShell> {
         title: Text(
           _onDashboard
               ? 'Panel Administrativo BBVA'
-              : _getTableDisplayName(),
+              : _onComite
+                  ? 'Comité de Créditos'
+                  : _getTableDisplayName(),
         ),
         actions: [
           Padding(
@@ -191,10 +209,12 @@ class _AdminShellState extends State<AdminShell> {
             onDashboard: _onDashboard,
             onRoles: _onRoles,
             onReportes: _onReportes,
+            onComite: _onComite,
             selectedTable: _selectedTable,
             onDashboardSelected: _goToDashboard,
             onRolesSelected: _goToRoles,
             onReportesSelected: _goToReportes,
+            onComiteSelected: _goToComite,
             onTableSelected: _goToTable,
             onLogout: widget.onLogout,
           ),
@@ -206,6 +226,8 @@ class _AdminShellState extends State<AdminShell> {
                     ? const AdminRoleManagementScreen()
                     : _onReportes
                         ? const AdminReportesScreen()
+                        : _onComite
+                            ? const ComiteScreen()
                         : (_selectedTable != null
                             ? TableListScreen(
                                 key: ValueKey(_selectedTable),

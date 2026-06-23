@@ -93,3 +93,21 @@ async def listar_documentos(
 ):
     repo = SolicitudRepository()
     return await repo.listar_documentos(solicitud_id)
+
+
+@router.get("/pendientes")
+async def listar_pendientes(user: dict = Depends(get_current_user)):
+    repo = SolicitudRepository()
+    return await repo.listar_pendientes_sin_asesor()
+
+
+@router.put("/{solicitud_id}/tomar")
+async def tomar_solicitud(
+    solicitud_id: str,
+    user: dict = Depends(get_current_user),
+):
+    repo = SolicitudRepository()
+    result = await repo.tomar_solicitud(solicitud_id, user["id"])
+    if not result:
+        raise HTTPException(status_code=400, detail="No se pudo tomar la solicitud. Puede que ya tenga un asesor asignado.")
+    return result

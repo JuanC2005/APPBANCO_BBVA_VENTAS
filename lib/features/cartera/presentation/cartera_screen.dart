@@ -59,6 +59,11 @@ class _CarteraScreenState extends ConsumerState<CarteraScreen> {
             onPressed: () => context.push('/historial-solicitudes'),
           ),
           IconButton(
+            icon: const Icon(Icons.pending_actions),
+            tooltip: 'Solicitudes Pendientes',
+            onPressed: () => context.push('/solicitudes-pendientes'),
+          ),
+          IconButton(
             icon: const Icon(Icons.monetization_on),
             tooltip: 'Simulador',
             onPressed: () => context.push('/simulador'),

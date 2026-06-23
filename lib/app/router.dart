@@ -27,6 +27,9 @@ import '../features/reportes/presentation/reporte_productividad_screen.dart';
 import '../features/preevaluacion/presentation/preevaluacion_screen.dart';
 import '../features/campanas/presentation/campanas_screen.dart';
 import '../features/campanas/presentation/crear_campana_screen.dart';
+import '../features/estado_solicitudes/presentation/solicitudes_pendientes_screen.dart';
+import '../features/admin/comite_screen.dart';
+import '../features/admin/comite_detalle_screen.dart';
 
 /// Perfiles que pueden acceder a rutas restringidas.
 const _perfilesSupervision = {'supervisor', 'super_operador', 'administrador'};
@@ -112,6 +115,10 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(path: '/preevaluacion', builder: (_, __) => const PreevaluacionScreen()),
       GoRoute(path: '/campanas', builder: (_, __) => const CampanasScreen()),
       GoRoute(path: '/crear-campana', builder: (_, __) => const CrearCampanaScreen()),
+      GoRoute(path: '/solicitudes-pendientes', builder: (_, __) => const SolicitudesPendientesScreen()),
+      GoRoute(path: '/comite', builder: (_, __) => const ComiteScreen()),
+      GoRoute(path: '/comite/:solicitudId', builder: (context, state) =>
+        ComiteDetalleScreen(solicitudId: state.pathParameters['solicitudId']!)),
     ],
   );
 });

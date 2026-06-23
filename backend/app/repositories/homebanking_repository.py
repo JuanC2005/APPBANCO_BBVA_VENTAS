@@ -289,3 +289,56 @@ class HomebankingRepository:
                 "ultimos_movimientos": movs,
             })
         return result
+
+    # ── Solicitud desde App Clientes ────────────────────
+
+    async def crear_solicitud_cliente(self, cliente_id: str, monto: float, plazo: int,
+                                       tea: float, cuota_estimada: float,
+                                       destino: str, garantia: str, con_seguro: bool,
+                                       numero_expediente: str) -> dict | None:
+        solicitud_id = str(uuid.uuid4())
+        data = {
+            "id": solicitud_id,
+            "numero_expediente": numero_expediente,
+            "cliente_id": cliente_id,
+            "asesor_id": None,
+            "tipo_negocio": None,
+            "nombre_negocio": None,
+            "monto_solicitado": monto,
+            "plazo_meses": plazo,
+            "moneda": "PEN",
+            "tipo_cuota": "mensual",
+            "garantia": garantia,
+            "destino_credito": destino,
+            "cuota_estimada": cuota_estimada,
+            "tea_referencial": tea,
+            "canal": "cliente",
+            "con_seguro": con_seguro,
+            "estado": "enviado",
+            "pendiente_sync": False,
+        }
+        resp = await supabase_execute(
+            supabase.table("solicitudes_credito").insert(data)
+        )
+        if not resp.data:
+            return None
+        return resp.data[0]
+
+    async def listar_solicitudes_cliente(self, cliente_id: str) -> list[dict]:
+        response = await supabase_execute(
+            supabase.table("solicitudes_credito")
+            .select("*")
+            .eq("cliente_id", cliente_id)
+            .eq("canal", "cliente")
+            .order("created_at", desc=True)
+        )
+        return response.data or []
+
+    async def obtener_solicitud_cliente(self, solicitud_id: str, cliente_id: str) -> dict | None:
+        response = await supabase_execute(
+            supabase.table("solicitudes_credito")
+            .select("*")
+            .eq("id", solicitud_id)
+            .eq("cliente_id", cliente_id)
+        )
+        return response.data[0] if response.data else None

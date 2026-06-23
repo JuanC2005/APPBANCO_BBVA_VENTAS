@@ -7,10 +7,12 @@ class AdminSidebar extends StatelessWidget {
   final bool onDashboard;
   final bool onRoles;
   final bool onReportes;
+  final bool onComite;
   final ValueChanged<String> onTableSelected;
   final VoidCallback onDashboardSelected;
   final VoidCallback onRolesSelected;
   final VoidCallback onReportesSelected;
+  final VoidCallback onComiteSelected;
   final VoidCallback? onLogout;
 
   const AdminSidebar({
@@ -19,10 +21,12 @@ class AdminSidebar extends StatelessWidget {
     this.onDashboard = true,
     this.onRoles = false,
     this.onReportes = false,
+    this.onComite = false,
     required this.onTableSelected,
     required this.onDashboardSelected,
     required this.onRolesSelected,
     required this.onReportesSelected,
+    required this.onComiteSelected,
     this.onLogout,
   });
 
@@ -56,6 +60,12 @@ class AdminSidebar extends StatelessWidget {
                   title: 'Reportes',
                   selected: onReportes,
                   onTap: onReportesSelected,
+                ),
+                _buildMenuItem(
+                  icon: Icons.gavel,
+                  title: 'Comité',
+                  selected: onComite,
+                  onTap: onComiteSelected,
                 ),
                 const Divider(color: Colors.white24, height: 1),
                 ..._buildCategorySections(),
