@@ -3,6 +3,7 @@ class SolicitudCredito {
   final String? numeroExpediente;
   final String asesorId;
   final String clienteId;
+  final String? clienteNombre;
   final String? agenciaId;
   final String? carteraId;
   final String? tipoNegocio;
@@ -41,6 +42,7 @@ class SolicitudCredito {
     this.numeroExpediente,
     required this.asesorId,
     required this.clienteId,
+    this.clienteNombre,
     this.agenciaId,
     this.carteraId,
     this.tipoNegocio,
@@ -96,6 +98,7 @@ class SolicitudCredito {
       numeroExpediente: json['numero_expediente'],
       asesorId: json['asesor_id'] ?? '',
       clienteId: json['cliente_id'] ?? '',
+      clienteNombre: json['cliente_nombre'],
       agenciaId: json['agencia_id'],
       carteraId: json['cartera_id'],
       tipoNegocio: json['tipo_negocio'],
@@ -140,6 +143,7 @@ class SolicitudCredito {
     'numero_expediente': numeroExpediente,
     'asesor_id': asesorId,
     'cliente_id': clienteId,
+    'cliente_nombre': clienteNombre,
     'agencia_id': agenciaId,
     'cartera_id': carteraId,
     'tipo_negocio': tipoNegocio,

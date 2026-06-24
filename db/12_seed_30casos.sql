@@ -66,7 +66,7 @@ FOR v_cliente_data IN (
       deuda_actual, entidades_deuda, calificacion_sbs, estado_cliente,
       lat, lng
     ) VALUES (
-      ('cccccccc-0002-0001-0001-0000000000' || v_cliente_data.id_suffix)::UUID,
+      ('cccccccc-0002-0001-0001-000000000' || v_cliente_data.id_suffix)::UUID,
       v_cliente_data.dni, 'DNI', v_cliente_data.nombres, v_cliente_data.apellidos,
       '1985-01-15', v_cliente_data.estado_civil, v_cliente_data.telefono,
       v_cliente_data.tipo_negocio, v_cliente_data.nombre_negocio, v_cliente_data.antiguedad_meses,

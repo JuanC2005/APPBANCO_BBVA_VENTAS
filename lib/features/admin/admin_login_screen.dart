@@ -1,5 +1,9 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
 import '../../core/constants/app_colors.dart';
+import '../../core/network/api_client.dart';
+import '../../core/network/api_config.dart';
 import '../../core/storage/supabase/supabase_client.dart';
 
 class AdminLoginScreen extends StatefulWidget {
@@ -41,9 +45,18 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
           .signInWithPassword(email: email, password: password);
       if (response.user == null) {
         setState(() => _error = 'Credenciales incorrectas');
-      } else {
-        widget.onLoginSuccess();
+        return;
       }
+      final backendRes = await http.post(
+        Uri.parse('${ApiConfig.baseUrl}/auth/login'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'email': email, 'password': password}),
+      );
+      if (backendRes.statusCode == 200) {
+        final data = jsonDecode(backendRes.body);
+        await ApiClient().saveToken(data['access_token']);
+      }
+      widget.onLoginSuccess();
     } catch (e) {
       setState(() => _error = 'Error de conexión: $e');
     }

@@ -34,7 +34,7 @@ class SolicitudCreate(BaseModel):
 class SolicitudResponse(BaseModel):
     id: str
     numero_expediente: str | None
-    asesor_id: str
+    asesor_id: str | None
     cliente_id: str
     estado: str
     monto_solicitado: float

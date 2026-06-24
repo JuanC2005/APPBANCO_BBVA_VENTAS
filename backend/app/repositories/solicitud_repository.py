@@ -69,7 +69,11 @@ class SolicitudRepository:
 
     async def enviar(self, solicitud_id: str) -> bool:
         current = await self.obtener(solicitud_id)
-        nuevo_estado = "recibido_comite" if (current and current.estado == "enviado") else "enviado"
+        if not current:
+            return False
+        if current.estado in ("recibido_comite", "en_evaluacion", "aprobado", "condicionado", "rechazado", "desembolsado"):
+            return False
+        nuevo_estado = "recibido_comite"
         resp = await supabase_execute(
             supabase.table("solicitudes_credito")
             .update({
@@ -116,7 +120,7 @@ class SolicitudRepository:
     async def listar_pendientes_sin_asesor(self) -> list[dict]:
         response = await supabase_execute(
             supabase.table("solicitudes_credito")
-            .select("*, clientes!inner(*)")
+            .select("*, clientes!left(*)")
             .is_("asesor_id", "null")
             .eq("canal", "cliente")
             .eq("estado", "enviado")
@@ -124,19 +128,10 @@ class SolicitudRepository:
         )
         rows = []
         for r in response.data:
-            cl = r.get("clientes") or {}
-            rows.append({
-                "id": r["id"],
-                "numero_expediente": r.get("numero_expediente"),
-                "cliente_id": r["cliente_id"],
-                "cliente_nombre": f"{cl.get('nombres', '')} {cl.get('apellidos', '')}",
-                "numero_documento": cl.get("numero_documento", ""),
-                "monto_solicitado": float(r["monto_solicitado"]),
-                "plazo_meses": r["plazo_meses"],
-                "destino_credito": r.get("destino_credito", ""),
-                "garantia": r.get("garantia", ""),
-                "created_at": str(r.get("created_at", "")),
-            })
+            cl = r.pop("clientes", {}) or {}
+            r["cliente_nombre"] = f"{cl.get('nombres', '')} {cl.get('apellidos', '')}"
+            r["numero_documento"] = cl.get("numero_documento", "")
+            rows.append(r)
         return rows
 
     async def tomar_solicitud(self, solicitud_id: str, asesor_id: str) -> dict | None:
@@ -187,7 +182,7 @@ class SolicitudRepository:
     async def listar_para_comite(self) -> list[dict]:
         response = await supabase_execute(
             supabase.table("solicitudes_credito")
-            .select("*, clientes!inner(cliente_id:id, nombres, apellidos, numero_documento)")
+            .select("*, clientes!inner(nombres, apellidos, numero_documento)")
             .in_("estado", ["recibido_comite", "en_evaluacion"])
             .order("updated_at", desc=True)
         )
@@ -225,6 +220,35 @@ class SolicitudRepository:
             return None
         sol = solicitud_resp.data[0]
 
+        # ── Idempotency guard: si ya está desembolsado, retornar crédito existente ──
+        if sol.get("estado") == "desembolsado":
+            existente = await supabase_execute(
+                supabase.table("creditos").select("*").eq("solicitud_id", solicitud_id).limit(1)
+            )
+            if existente.data:
+                ref = existente.data[0]
+                cuotas_resp = await supabase_execute(
+                    supabase.table("cr_cronograma_cuotas").select("nro_cuota").eq("credito_id", ref["id"])
+                )
+                return {
+                    "credito_id": ref["id"],
+                    "cuotas_generadas": len(cuotas_resp.data) if cuotas_resp.data else 0,
+                }
+
+        # ── Verificar si ya existe crédito vinculado a esta solicitud ──
+        existente = await supabase_execute(
+            supabase.table("creditos").select("*").eq("solicitud_id", solicitud_id).limit(1)
+        )
+        if existente.data:
+            ref = existente.data[0]
+            cuotas_resp = await supabase_execute(
+                supabase.table("cr_cronograma_cuotas").select("nro_cuota").eq("credito_id", ref["id"])
+            )
+            return {
+                "credito_id": ref["id"],
+                "cuotas_generadas": len(cuotas_resp.data) if cuotas_resp.data else 0,
+            }
+
         cliente_id = sol["cliente_id"]
         asesor_id = sol.get("asesor_id")
         plazo = sol["plazo_meses"]
@@ -241,6 +265,7 @@ class SolicitudRepository:
 
         credito_data = {
             "id": credito_id,
+            "solicitud_id": solicitud_id,
             "cliente_id": cliente_id,
             "asesor_id": asesor_id,
             "producto": producto,

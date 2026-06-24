@@ -82,7 +82,7 @@ class SolicitudesPendientesScreen extends ConsumerWidget {
                     subtitle: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('Cliente: ${s.clienteId.substring(0, 8)}...'),
+                        Text('Cliente: ${s.clienteNombre ?? s.clienteId.substring(0, 8)}'),
                         const SizedBox(height: 4),
                         Chip(
                           label: Text(s.estadoLabel, style: const TextStyle(color: Colors.white, fontSize: 11)),

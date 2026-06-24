@@ -24,6 +24,12 @@ async def listar_solicitudes(
     return await repo.listar_por_asesor(user["id"])
 
 
+@router.get("/pendientes")
+async def listar_pendientes(user: dict = Depends(get_current_user)):
+    repo = SolicitudRepository()
+    return await repo.listar_pendientes_sin_asesor()
+
+
 @router.get("/{solicitud_id}", response_model=SolicitudDetailResponse)
 async def obtener_solicitud(
     solicitud_id: str,
@@ -93,12 +99,6 @@ async def listar_documentos(
 ):
     repo = SolicitudRepository()
     return await repo.listar_documentos(solicitud_id)
-
-
-@router.get("/pendientes")
-async def listar_pendientes(user: dict = Depends(get_current_user)):
-    repo = SolicitudRepository()
-    return await repo.listar_pendientes_sin_asesor()
 
 
 @router.put("/{solicitud_id}/tomar")

@@ -21,11 +21,7 @@ class EstadoRepository {
   }
 
   Future<SolicitudCredito?> obtenerPorId(String solicitudId) async {
-    try {
-      final result = await _api.get('/solicitudes/$solicitudId');
-      return SolicitudCredito.fromJson(result);
-    } catch (_) {
-      return null;
-    }
+    final result = await _api.get('/solicitudes/$solicitudId');
+    return SolicitudCredito.fromJson(result);
   }
 }

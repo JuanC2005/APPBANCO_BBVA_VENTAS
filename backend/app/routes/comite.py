@@ -72,6 +72,10 @@ async def decidir_solicitud(
     if not solicitud:
         raise HTTPException(status_code=404, detail="Solicitud no encontrada")
 
+    # ── Idempotency guard: si ya fue desembolsado, retornar sin duplicar ──
+    if solicitud.estado == "desembolsado":
+        return {"mensaje": "Solicitud ya fue desembolsada previamente"}
+
     update_data = {"estado": req.decision, "updated_at": datetime.now(timezone.utc).isoformat()}
 
     if req.decision == "rechazado":

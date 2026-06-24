@@ -221,6 +221,7 @@ class ComiteScreen extends ConsumerWidget {
 
   void _showDecidirDialog(BuildContext context, WidgetRef ref, String id) {
     String decision = 'aprobado';
+    bool isSubmitting = false;
     final montoCtrl = TextEditingController();
     final condicionCtrl = TextEditingController();
 
@@ -240,7 +241,7 @@ class ComiteScreen extends ConsumerWidget {
                   DropdownMenuItem(value: 'condicionado', child: Text('Condicionado')),
                   DropdownMenuItem(value: 'rechazado', child: Text('Rechazado')),
                 ],
-                onChanged: (v) => setDialogState(() => decision = v!),
+                onChanged: isSubmitting ? null : (v) => setDialogState(() => decision = v!),
               ),
               const SizedBox(height: 8),
               if (decision != 'rechazado')
@@ -260,26 +261,47 @@ class ComiteScreen extends ConsumerWidget {
             ],
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancelar')),
+            TextButton(
+              onPressed: isSubmitting ? null : () => Navigator.pop(ctx),
+              child: const Text('Cancelar'),
+            ),
             ElevatedButton(
-              onPressed: () async {
-                try {
-                  await ref.read(comiteRepositoryProvider).decidir(id, {
-                    'decision': decision,
-                    'monto_aprobado': double.tryParse(montoCtrl.text),
-                    'condicion_adicional': condicionCtrl.text.isNotEmpty ? condicionCtrl.text : null,
-                  });
-                  Navigator.pop(ctx);
-                  ref.invalidate(comiteListProvider);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Solicitud $decision')),
-                  );
-                } catch (e) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Error: $e'), backgroundColor: BBVAColors.errorRed),
-                  );
-                }
-              },
+              onPressed: isSubmitting
+                  ? null
+                  : () async {
+                      setDialogState(() => isSubmitting = true);
+                      try {
+                        await ref.read(comiteRepositoryProvider).decidir(id, {
+                          'decision': decision,
+                          'monto_aprobado': double.tryParse(montoCtrl.text),
+                          'condicion_adicional': condicionCtrl.text.isNotEmpty ? condicionCtrl.text : null,
+                        });
+                        Navigator.pop(ctx);
+                        ref.invalidate(comiteListProvider);
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text('Solicitud $decision')),
+                        );
+                      } catch (e) {
+                        setDialogState(() => isSubmitting = false);
+                        final msg = e.toString();
+                        if (msg.contains('Failed to fetch') || msg.contains('ClientException')) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: const Text(
+                                'Error de conexión. La solicitud pudo ser procesada. '
+                                'Verifique la lista o reintente.',
+                              ),
+                              backgroundColor: Colors.orange,
+                              duration: const Duration(seconds: 5),
+                            ),
+                          );
+                        } else {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text('Error: $e'), backgroundColor: BBVAColors.errorRed),
+                          );
+                        }
+                      }
+                    },
               style: ElevatedButton.styleFrom(
                 backgroundColor: decision == 'aprobado'
                     ? BBVAColors.successGreen
@@ -288,7 +310,12 @@ class ComiteScreen extends ConsumerWidget {
                         : BBVAColors.errorRed,
                 foregroundColor: Colors.white,
               ),
-              child: const Text('Confirmar'),
+              child: isSubmitting
+                  ? const SizedBox(
+                      width: 20, height: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                    )
+                  : const Text('Confirmar'),
             ),
           ],
         ),
