@@ -1,5 +1,6 @@
 class CarteraVisita {
   final String id;
+  final String? solicitudId;
   final String asesorId;
   final String clienteId;
   final DateTime fechaAsignacion;
@@ -30,8 +31,11 @@ class CarteraVisita {
   final double? montoPreaprobado;
   final int? plazoSugerido;
 
+  final String tipoOrigen;
+
   CarteraVisita({
     required this.id,
+    this.solicitudId,
     required this.asesorId,
     required this.clienteId,
     required this.fechaAsignacion,
@@ -60,6 +64,7 @@ class CarteraVisita {
     this.segmento = 'N/A',
     this.montoPreaprobado,
     this.plazoSugerido,
+    this.tipoOrigen = 'visita',
   });
 
   String get prioridadLabel {
@@ -73,9 +78,14 @@ class CarteraVisita {
 
   bool get visitado => resultadoVisita != null;
 
+  bool get esVisita => tipoOrigen == 'visita';
+  bool get esSolicitudAsignada => tipoOrigen == 'solicitud_asignada';
+  bool get esSolicitudPendiente => tipoOrigen == 'solicitud_pendiente';
+
   factory CarteraVisita.fromJson(Map<String, dynamic> json) {
     return CarteraVisita(
       id: json['cartera_id'] ?? json['id'] ?? '',
+      solicitudId: json['solicitud_id'],
       asesorId: json['asesor_id'] ?? '',
       clienteId: json['cliente_id'] ?? '',
       fechaAsignacion: DateTime.parse(
@@ -110,11 +120,13 @@ class CarteraVisita {
       segmento: json['segmento'] ?? 'N/A',
       montoPreaprobado: (json['monto_preaprobado'] as num?)?.toDouble(),
       plazoSugerido: (json['plazo_sugerido_meses'] as num?)?.toInt(),
+      tipoOrigen: json['tipo_origen'] ?? 'visita',
     );
   }
 
   Map<String, dynamic> toJson() => {
     'id': id,
+    'solicitud_id': solicitudId,
     'asesor_id': asesorId,
     'cliente_id': clienteId,
     'fecha_asignacion': fechaAsignacion.toIso8601String(),
@@ -143,5 +155,6 @@ class CarteraVisita {
     'segmento': segmento,
     'monto_preaprobado': montoPreaprobado,
     'plazo_sugerido_meses': plazoSugerido,
+    'tipo_origen': tipoOrigen,
   };
 }

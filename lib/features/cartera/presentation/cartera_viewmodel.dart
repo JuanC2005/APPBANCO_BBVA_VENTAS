@@ -59,6 +59,11 @@ class CarteraViewModel extends StateNotifier<CarteraState> {
     state = state.copyWith(filtroBusqueda: filtro);
   }
 
+  Future<void> tomarSolicitud(String asesorId, String solicitudId) async {
+    await _repository.tomarSolicitud(solicitudId);
+    await cargarCartera(asesorId);
+  }
+
   Future<void> registrarResultado(
       String visitaId, String resultado, String observacion) async {
     final data = {

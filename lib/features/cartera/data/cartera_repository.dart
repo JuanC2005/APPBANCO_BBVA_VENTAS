@@ -66,6 +66,10 @@ class CarteraRepository {
     }
   }
 
+  Future<void> tomarSolicitud(String solicitudId) async {
+    await _api.put('/solicitudes/$solicitudId/tomar', {});
+  }
+
   Future<void> syncPending() async {
     if (!_networkMonitor.isOnline) return;
     final pendientes = await _localDb.obtenerVisitasPendientes();

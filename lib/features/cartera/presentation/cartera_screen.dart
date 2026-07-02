@@ -134,14 +134,26 @@ class _CarteraScreenState extends ConsumerState<CarteraScreen> {
                         ? const Center(child: Text('No hay visitas pendientes'))
                         : ListView.builder(
                             itemCount: state.visitasFiltradas.length,
-                            itemBuilder: (_, i) =>
-                                _VisitaCard(
-                                  visita: state.visitasFiltradas[i],
-                                  onTap: () => context.push(
-                                      '/ficha-cliente/${state.visitasFiltradas[i].clienteId}'),
-                                  onResultado: () => _showResultadoDialog(
-                                      state.visitasFiltradas[i].id),
-                                ),
+                            itemBuilder: (_, i) {
+                              final v = state.visitasFiltradas[i];
+                              return _VisitaCard(
+                                visita: v,
+                                onTap: () => context.push(
+                                    '/ficha-cliente/${v.clienteId}'),
+                                onResultado: v.esVisita
+                                    ? () => _showResultadoDialog(v.id)
+                                    : null,
+                                onTomar: v.esSolicitudPendiente
+                                    ? () async {
+                                        final asesor = ref.read(authViewModelProvider).asesor;
+                                        if (asesor != null) {
+                                          await ref.read(carteraViewModelProvider.notifier)
+                                              .tomarSolicitud(asesor.id, v.solicitudId ?? v.id);
+                                        }
+                                      }
+                                    : null,
+                              );
+                            },
                           ),
           ),
         ],
@@ -213,10 +225,11 @@ class _ResumenItem extends StatelessWidget {
 class _VisitaCard extends StatelessWidget {
   final CarteraVisita visita;
   final VoidCallback onTap;
-  final VoidCallback onResultado;
+  final VoidCallback? onResultado;
+  final VoidCallback? onTomar;
 
   const _VisitaCard(
-      {required this.visita, required this.onTap, required this.onResultado});
+      {required this.visita, required this.onTap, this.onResultado, this.onTomar});
 
   Color _tipoColor() {
     switch (visita.tipoGestion) {
@@ -254,6 +267,22 @@ class _VisitaCard extends StatelessWidget {
     }
   }
 
+  Color _origenColor() {
+    switch (visita.tipoOrigen) {
+      case 'solicitud_asignada': return BBVAColors.successGreen;
+      case 'solicitud_pendiente': return BBVAColors.warningAmber;
+      default: return BBVAColors.primaryBlue;
+    }
+  }
+
+  String _origenLabel() {
+    switch (visita.tipoOrigen) {
+      case 'solicitud_asignada': return 'Solicitud';
+      case 'solicitud_pendiente': return 'Pendiente';
+      default: return 'Visita';
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Card(
@@ -279,8 +308,21 @@ class _VisitaCard extends StatelessWidget {
                         style: const TextStyle(
                             fontWeight: FontWeight.bold, fontSize: 16)),
                     const SizedBox(height: 4),
-                    Row(
+                    Wrap(
+                      spacing: 6,
+                      runSpacing: 4,
                       children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: _origenColor().withAlpha(30),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Text(_origenLabel(),
+                              style: TextStyle(
+                                  fontSize: 11, color: _origenColor())),
+                        ),
                         Container(
                           padding: const EdgeInsets.symmetric(
                               horizontal: 6, vertical: 2),
@@ -292,7 +334,6 @@ class _VisitaCard extends StatelessWidget {
                               style: TextStyle(
                                   fontSize: 11, color: _tipoColor())),
                         ),
-                        const SizedBox(width: 8),
                         Container(
                           padding: const EdgeInsets.symmetric(
                               horizontal: 6, vertical: 2),
@@ -315,11 +356,25 @@ class _VisitaCard extends StatelessWidget {
                   ],
                 ),
               ),
-              IconButton(
-                icon: const Icon(Icons.check_circle_outline,
-                    color: BBVAColors.successGreen),
-                onPressed: visita.resultadoVisita == null ? onResultado : null,
-              ),
+              if (onTomar != null)
+                ElevatedButton.icon(
+                  icon: const Icon(Icons.add_circle_outline, size: 18),
+                  label: const Text('Tomar', style: TextStyle(fontSize: 12)),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: BBVAColors.successGreen,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    minimumSize: Size.zero,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                  onPressed: onTomar,
+                )
+              else
+                IconButton(
+                  icon: const Icon(Icons.check_circle_outline,
+                      color: BBVAColors.successGreen),
+                  onPressed: visita.resultadoVisita == null ? onResultado : null,
+                ),
             ],
           ),
         ),
