@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import '../../../core/constants/app_colors.dart';
 import 'transmision_viewmodel.dart';
 
@@ -24,6 +25,15 @@ class _TransmisionScreenState extends ConsumerState<TransmisionScreen> {
     final state = ref.watch(transmisionViewModelProvider(widget.solicitudId));
     final vm =
         ref.read(transmisionViewModelProvider(widget.solicitudId).notifier);
+
+    ref.listen(transmisionViewModelProvider(widget.solicitudId),
+        (TransmisionState? prev, TransmisionState next) {
+      if (next.completado && !(prev?.completado ?? false)) {
+        Future.delayed(const Duration(milliseconds: 800), () {
+          if (mounted) context.pop();
+        });
+      }
+    });
 
     return Scaffold(
       appBar: AppBar(title: const Text('Transmisión')),

@@ -6,21 +6,21 @@ import '../../auth/presentation/login_viewmodel.dart';
 import '../../solicitud/domain/solicitud.dart';
 import '../data/estado_repository.dart';
 
-final pendientesProvider = FutureProvider<List<SolicitudCredito>>((ref) {
+final pendientesProvider = FutureProvider.autoDispose<List<SolicitudCredito>>((ref) {
   final asesor = ref.watch(authViewModelProvider).asesor;
   final repo = ref.watch(estadoRepositoryProvider);
   return repo.listarPorEstado(asesor?.id ?? '',
       ['borrador', 'enviado', 'recibido_comite', 'en_evaluacion']);
 });
 
-final aprobadosProvider = FutureProvider<List<SolicitudCredito>>((ref) {
+final aprobadosProvider = FutureProvider.autoDispose<List<SolicitudCredito>>((ref) {
   final asesor = ref.watch(authViewModelProvider).asesor;
   final repo = ref.watch(estadoRepositoryProvider);
   return repo.listarPorEstado(asesor?.id ?? '',
       ['aprobado', 'condicionado', 'desembolsado']);
 });
 
-final rechazadosProvider = FutureProvider<List<SolicitudCredito>>((ref) {
+final rechazadosProvider = FutureProvider.autoDispose<List<SolicitudCredito>>((ref) {
   final asesor = ref.watch(authViewModelProvider).asesor;
   final repo = ref.watch(estadoRepositoryProvider);
   return repo.listarPorEstado(asesor?.id ?? '', ['rechazado']);
@@ -51,12 +51,24 @@ class TableroSolicitudesScreen extends ConsumerWidget {
             ],
           ),
         ),
-        body: TabBarView(
-          children: [
-            _tabContent(pendientes, context),
-            _tabContent(aprobados, context),
-            _tabContent(rechazados, context),
-          ],
+        body: RefreshIndicator(
+          onRefresh: () async {
+            ref.invalidate(pendientesProvider);
+            ref.invalidate(aprobadosProvider);
+            ref.invalidate(rechazadosProvider);
+            await Future.wait([
+              ref.refresh(pendientesProvider.future),
+              ref.refresh(aprobadosProvider.future),
+              ref.refresh(rechazadosProvider.future),
+            ]);
+          },
+          child: TabBarView(
+            children: [
+              _tabContent(pendientes, context),
+              _tabContent(aprobados, context),
+              _tabContent(rechazados, context),
+            ],
+          ),
         ),
       ),
     );

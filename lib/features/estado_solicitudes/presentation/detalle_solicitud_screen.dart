@@ -7,7 +7,7 @@ import '../../solicitud/domain/solicitud.dart';
 import '../data/estado_repository.dart';
 
 final detalleSolicitudProvider =
-    FutureProvider.family<SolicitudCredito?, String>((ref, id) {
+    FutureProvider.autoDispose.family<SolicitudCredito?, String>((ref, id) {
   final repo = ref.watch(estadoRepositoryProvider);
   return repo.obtenerPorId(id);
 });
@@ -104,8 +104,10 @@ class DetalleSolicitudScreen extends ConsumerWidget {
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton.icon(
-                    onPressed: () => context.push(
-                        '/transmision/${s.id}'),
+                    onPressed: () async {
+                      await context.push('/transmision/${s.id}');
+                      ref.invalidate(detalleSolicitudProvider(s.id));
+                    },
                     icon: const Icon(Icons.cloud_upload),
                     label: const Text('Transmitir'),
                   ),
