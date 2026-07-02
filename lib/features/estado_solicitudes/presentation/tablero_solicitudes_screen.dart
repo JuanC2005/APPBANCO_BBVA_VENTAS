@@ -64,9 +64,9 @@ class TableroSolicitudesScreen extends ConsumerWidget {
           },
           child: TabBarView(
             children: [
-              _tabContent(pendientes, context),
-              _tabContent(aprobados, context),
-              _tabContent(rechazados, context),
+              _tabContent(pendientes, context, ref),
+              _tabContent(aprobados, context, ref),
+              _tabContent(rechazados, context, ref),
             ],
           ),
         ),
@@ -79,7 +79,7 @@ class TableroSolicitudesScreen extends ConsumerWidget {
   }
 
   Widget _tabContent(
-      AsyncValue<List<SolicitudCredito>> list, BuildContext context) {
+      AsyncValue<List<SolicitudCredito>> list, BuildContext context, WidgetRef ref) {
     return list.when(
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (e, _) => Center(child: Text('Error: $e')),
@@ -90,13 +90,13 @@ class TableroSolicitudesScreen extends ConsumerWidget {
         return ListView.builder(
           padding: const EdgeInsets.all(16),
           itemCount: solicitudes.length,
-          itemBuilder: (_, i) => _card(solicitudes[i], context),
+          itemBuilder: (_, i) => _card(solicitudes[i], context, ref),
         );
       },
     );
   }
 
-  Widget _card(SolicitudCredito s, BuildContext context) {
+  Widget _card(SolicitudCredito s, BuildContext context, WidgetRef ref) {
     Color color;
     switch (s.estado) {
       case 'aprobado': case 'condicionado': case 'desembolsado':
@@ -128,7 +128,12 @@ class TableroSolicitudesScreen extends ConsumerWidget {
           child: Text(s.estadoLabel,
               style: TextStyle(color: color, fontWeight: FontWeight.bold)),
         ),
-        onTap: () => context.push('/detalle-solicitud/${s.id}'),
+        onTap: () async {
+          await context.push('/detalle-solicitud/${s.id}');
+          ref.invalidate(pendientesProvider);
+          ref.invalidate(aprobadosProvider);
+          ref.invalidate(rechazadosProvider);
+        },
       ),
     );
   }
