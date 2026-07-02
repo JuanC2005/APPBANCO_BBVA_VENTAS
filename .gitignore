@@ -1,7 +1,13 @@
+# Python / Backend
+backend/.env
+backend/.venv/
+backend/venv/
+__pycache__/
+*.pyc
+
 # Miscellaneous
 *.class
 *.log
-*.pyc
 *.swp
 .DS_Store
 .atom/
