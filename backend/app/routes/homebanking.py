@@ -4,11 +4,21 @@ from app.core.dependencies_cliente import get_current_cliente
 from app.repositories.homebanking_repository import HomebankingRepository
 from app.schemas.homebanking import (
     ClienteAppLoginRequest,
+    RegistroClienteRequest,
     TransferenciaRequest,
     PagoCuotaRequest,
 )
 
 router = APIRouter(prefix="/homebanking", tags=["homebanking"])
+
+
+@router.post("/registro")
+async def registrar_cliente(req: RegistroClienteRequest):
+    repo = HomebankingRepository()
+    result = await repo.registrar_cliente(req)
+    if result is None:
+        raise HTTPException(status_code=400, detail="El número de documento ya está registrado")
+    return result
 
 
 @router.post("/login")

@@ -14,6 +14,16 @@ class ClienteAppLoginResponse(BaseModel):
     cliente: dict
 
 
+class RegistroClienteRequest(BaseModel):
+    tipo_documento: str = "DNI"
+    numero_documento: str
+    nombres: str
+    apellidos: str
+    telefono: str | None = None
+    email: str | None = None
+    password: str
+
+
 class ClienteAppPerfilResponse(BaseModel):
     id: str
     numero_documento: str

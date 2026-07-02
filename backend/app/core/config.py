@@ -16,6 +16,7 @@ class Settings(BaseSettings):
 
     SUPABASE_URL: str = "https://slvfourmyqgkzjddyliv.supabase.co"
     SUPABASE_SERVICE_KEY: str = ""
+    SUPABASE_ANON_KEY: str = ""
 
     class Config:
         env_file = ".env"

@@ -76,6 +76,78 @@ class HomebankingRepository:
             "cliente": cliente,
         }
 
+    async def registrar_cliente(self, req) -> dict | None:
+        existe = await supabase_execute(
+            supabase.table("clientes")
+            .select("id")
+            .eq("numero_documento", req.numero_documento)
+        )
+        if existe.data:
+            return None
+
+        cliente_id = str(uuid.uuid4())
+        cliente_data = {
+            "id": cliente_id,
+            "numero_documento": req.numero_documento,
+            "tipo_documento": req.tipo_documento,
+            "nombres": req.nombres,
+            "apellidos": req.apellidos,
+            "telefono": req.telefono,
+            "email": req.email,
+        }
+        resp = await supabase_execute(
+            supabase.table("clientes").insert(cliente_data)
+        )
+        if not resp.data:
+            return None
+
+        password_hash = hashlib.sha256(req.password.encode()).hexdigest()
+        clientes_app_id = str(uuid.uuid4())
+        app_user_data = {
+            "id": clientes_app_id,
+            "cliente_id": cliente_id,
+            "password_hash": password_hash,
+            "activo": True,
+        }
+        resp_app = await supabase_execute(
+            supabase.table("clientes_app").insert(app_user_data)
+        )
+        if not resp_app.data:
+            return None
+
+        import random
+        n1 = random.randint(1000, 9999)
+        n2 = random.randint(1000, 9999)
+        n3 = random.randint(1000, 9999)
+        numero_cuenta = f"0011-{n1}-{n2}-{n3}"
+        cuenta_data = {
+            "cliente_id": cliente_id,
+            "numero_cuenta": numero_cuenta,
+            "tipo_cuenta": "ahorros",
+            "moneda": "PEN",
+            "saldo_actual": 0,
+            "estado": "activa",
+        }
+        resp_cuenta = await supabase_execute(
+            supabase.table("cr_cuentas_ahorro").insert(cuenta_data)
+        )
+        if not resp_cuenta.data:
+            return None
+
+        token = create_access_token({
+            "sub": clientes_app_id,
+            "cliente_id": cliente_id,
+            "tipo": "cliente",
+            "numero_documento": req.numero_documento,
+        })
+
+        return {
+            "access_token": token,
+            "token_type": "bearer",
+            "cliente": resp.data[0],
+            "cuenta": resp_cuenta.data[0],
+        }
+
     async def get_profile(self, clientes_app_id: str) -> dict | None:
         response = await supabase_execute(
             supabase.table("clientes_app")
@@ -295,7 +367,9 @@ class HomebankingRepository:
     async def crear_solicitud_cliente(self, cliente_id: str, monto: float, plazo: int,
                                        tea: float, cuota_estimada: float,
                                        destino: str, garantia: str, con_seguro: bool,
-                                       numero_expediente: str) -> dict | None:
+                                       numero_expediente: str,
+                                       lat_captura: float | None = None,
+                                       lng_captura: float | None = None) -> dict | None:
         solicitud_id = str(uuid.uuid4())
         data = {
             "id": solicitud_id,
@@ -316,6 +390,8 @@ class HomebankingRepository:
             "con_seguro": con_seguro,
             "estado": "enviado",
             "pendiente_sync": False,
+            "lat_captura": lat_captura,
+            "lng_captura": lng_captura,
         }
         resp = await supabase_execute(
             supabase.table("solicitudes_credito").insert(data)
@@ -333,6 +409,16 @@ class HomebankingRepository:
             .order("created_at", desc=True)
         )
         return response.data or []
+
+    async def actualizar_ubicacion_solicitud(self, solicitud_id: str, cliente_id: str,
+                                               lat: float, lng: float) -> bool:
+        resp = await supabase_execute(
+            supabase.table("solicitudes_credito")
+            .update({"lat_captura": lat, "lng_captura": lng, "updated_at": "now()"})
+            .eq("id", solicitud_id)
+            .eq("cliente_id", cliente_id)
+        )
+        return len(resp.data) > 0
 
     async def obtener_solicitud_cliente(self, solicitud_id: str, cliente_id: str) -> dict | None:
         response = await supabase_execute(

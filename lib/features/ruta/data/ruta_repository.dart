@@ -14,7 +14,7 @@ class RutaRepository {
   Future<List<CarteraVisita>> obtenerVisitasRuta(String asesorId) async {
     final todas = await _carteraRepository.obtenerCarteraDiaria(asesorId);
     return todas
-        .where((v) => v.lat != null && v.lng != null && !v.visitado)
+        .where((v) => (v.lat != null && v.lng != null || v.latVisita != null && v.lngVisita != null) && !v.visitado)
         .toList();
   }
 }

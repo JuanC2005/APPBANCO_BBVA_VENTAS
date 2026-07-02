@@ -172,6 +172,8 @@ class SolicitudRepository:
             "prioridad": "alta",
             "monto_referencial": solicitud["monto_solicitado"],
             "estado_visita": "pendiente",
+            "lat_visita": solicitud.get("lat_captura"),
+            "lng_visita": solicitud.get("lng_captura"),
         }
         await supabase_execute(supabase.table("cartera_diaria").insert(cartera_entry))
 

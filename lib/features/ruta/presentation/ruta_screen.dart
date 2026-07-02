@@ -71,7 +71,9 @@ class _RutaScreenState extends ConsumerState<RutaScreen> {
           state.currentPosition!.latitude, state.currentPosition!.longitude);
     }
     for (final v in state.rutaOptimizada) {
-      if (v.lat != null && v.lng != null) addPoint(v.lat!, v.lng!);
+      if (v.lat != null && v.lng != null || v.latVisita != null && v.lngVisita != null) {
+        addPoint(v.lat ?? v.latVisita!, v.lng ?? v.lngVisita!);
+      }
     }
     if (minLat == null) return null;
     return LatLngBounds(
@@ -90,9 +92,9 @@ class _RutaScreenState extends ConsumerState<RutaScreen> {
     }
     for (var i = 0; i < state.rutaOptimizada.length; i++) {
       final v = state.rutaOptimizada[i];
-      if (v.lat == null || v.lng == null) continue;
+      if (v.lat == null && v.latVisita == null || v.lng == null && v.lngVisita == null) continue;
       markers.add(Marker(
-        point: LatLng(v.lat!, v.lng!),
+        point: LatLng(v.lat ?? v.latVisita!, v.lng ?? v.lngVisita!),
         child: Container(
           decoration: BoxDecoration(
             color: Colors.green,
@@ -119,8 +121,8 @@ class _RutaScreenState extends ConsumerState<RutaScreen> {
       points.add(state.currentPosition!);
     }
     for (final v in state.rutaOptimizada) {
-      if (v.lat != null && v.lng != null) {
-        points.add(LatLng(v.lat!, v.lng!));
+      if (v.lat != null && v.lng != null || v.latVisita != null && v.lngVisita != null) {
+        points.add(LatLng(v.lat ?? v.latVisita!, v.lng ?? v.lngVisita!));
       }
     }
     return [
@@ -287,7 +289,7 @@ class _RutaScreenState extends ConsumerState<RutaScreen> {
                       ref.read(rutaViewModelProvider.notifier).abrirNavegacion(paradas[i]),
                   onTap: () {
                     final v = paradas[i];
-                    if (v.lat != null && v.lng != null) {
+                    if (v.lat != null && v.lng != null || v.latVisita != null && v.lngVisita != null) {
                       _mapController?.move(
                           LatLng(v.lat!, v.lng!), 16);
                     }

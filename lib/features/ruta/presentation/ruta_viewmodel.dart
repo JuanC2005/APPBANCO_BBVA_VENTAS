@@ -67,7 +67,7 @@ class RutaViewModel extends StateNotifier<RutaState> {
       var minIdx = 0;
       for (var i = 0; i < restantes.length; i++) {
         final v = restantes[i];
-        final d = _distancia(origen, LatLng(v.lat!, v.lng!));
+        final d = _distancia(origen, LatLng(v.lat ?? v.latVisita!, v.lng ?? v.lngVisita!));
         if (d < minDist) {
           minDist = d;
           minIdx = i;
@@ -75,7 +75,7 @@ class RutaViewModel extends StateNotifier<RutaState> {
       }
       final next = restantes.removeAt(minIdx);
       ruta.add(next);
-      origen = LatLng(next.lat!, next.lng!);
+      origen = LatLng(next.lat ?? next.latVisita!, next.lng ?? next.lngVisita!);
     }
     state = state.copyWith(rutaOptimizada: ruta);
   }
@@ -91,9 +91,9 @@ class RutaViewModel extends StateNotifier<RutaState> {
   }
 
   Future<void> abrirNavegacion(CarteraVisita destino) async {
-    if (destino.lat == null || destino.lng == null) return;
-    final lat = destino.lat!;
-    final lng = destino.lng!;
+    final lat = destino.lat ?? destino.latVisita;
+    final lng = destino.lng ?? destino.lngVisita;
+    if (lat == null || lng == null) return;
 
     final googleUri = Uri.parse(
         'https://www.google.com/maps/dir/?api=1&destination=$lat,$lng'
@@ -116,13 +116,18 @@ class RutaViewModel extends StateNotifier<RutaState> {
       await abrirNavegacion(state.rutaOptimizada.first);
       return;
     }
-    final destinos =
-        state.rutaOptimizada.map((v) => '${v.lat},${v.lng}').join('|');
+    final destinos = state.rutaOptimizada.map((v) {
+      final lat = v.lat ?? v.latVisita;
+      final lng = v.lng ?? v.lngVisita;
+      return '$lat,$lng';
+    }).join('|');
+    final last = state.rutaOptimizada.last;
+    final lastLat = last.lat ?? last.latVisita;
+    final lastLng = last.lng ?? last.lngVisita;
     final uri = Uri.parse(
         'https://www.google.com/maps/dir/?api=1'
         '&origin=${current.latitude},${current.longitude}'
-        '&destination=${state.rutaOptimizada.last.lat},'
-        '${state.rutaOptimizada.last.lng}'
+        '&destination=$lastLat,$lastLng'
         '&waypoints=$destinos'
         '&travelmode=driving');
     if (await canLaunchUrl(uri)) {

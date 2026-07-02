@@ -9,6 +9,8 @@ class SolicitudClienteCreate(BaseModel):
     destino_credito: str = ""
     garantia: str = "sin_garantia"
     con_seguro: bool = False
+    lat_captura: float | None = None
+    lng_captura: float | None = None
 
 
 class SolicitudClienteResponse(BaseModel):
@@ -28,8 +30,15 @@ class SolicitudClienteResponse(BaseModel):
     monto_aprobado: float | None
     motivo_rechazo: str | None
     condicion_adicional: str | None
+    lat_captura: float | None = None
+    lng_captura: float | None = None
     created_at: datetime
     updated_at: datetime
+
+
+class UbicacionSolicitudUpdate(BaseModel):
+    lat_captura: float
+    lng_captura: float
 
 
 class DecidirRequest(BaseModel):

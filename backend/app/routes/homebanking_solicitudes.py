@@ -5,9 +5,23 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from app.core.dependencies import get_current_cliente
 from app.repositories.homebanking_repository import HomebankingRepository
 from app.repositories.solicitud_repository import SolicitudRepository
-from app.schemas.solicitud_homebanking import SolicitudClienteCreate, SolicitudClienteResponse
+from app.schemas.solicitud_homebanking import SolicitudClienteCreate, SolicitudClienteResponse, UbicacionSolicitudUpdate
 
 router = APIRouter(prefix="/homebanking", tags=["homebanking"])
+
+
+@router.put("/solicitudes/{solicitud_id}/ubicacion")
+async def actualizar_ubicacion(
+    solicitud_id: str,
+    req: UbicacionSolicitudUpdate,
+    user: dict = Depends(get_current_cliente),
+):
+    cliente_id = user.get("cliente_id") or user.get("sub")
+    repo = HomebankingRepository()
+    ok = await repo.actualizar_ubicacion_solicitud(solicitud_id, cliente_id, req.lat_captura, req.lng_captura)
+    if not ok:
+        raise HTTPException(status_code=404, detail="Solicitud no encontrada")
+    return {"mensaje": "Ubicación actualizada", "lat_captura": req.lat_captura, "lng_captura": req.lng_captura}
 
 
 @router.post("/solicitudes", response_model=SolicitudClienteResponse)
@@ -48,6 +62,8 @@ async def crear_solicitud_cliente(
         garantia=req.garantia,
         con_seguro=req.con_seguro,
         numero_expediente=expediente,
+        lat_captura=req.lat_captura,
+        lng_captura=req.lng_captura,
     )
 
     if not result:

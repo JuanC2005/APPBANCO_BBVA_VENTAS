@@ -1,6 +1,6 @@
 import asyncio
 
-from app.core.database import supabase, supabase_execute
+from app.core.database import supabase, supabase_auth, supabase_execute
 from app.core.security import create_access_token
 from app.schemas.auth import LoginRequest, RegisterRequest
 
@@ -9,7 +9,7 @@ class AuthRepository:
     async def login(self, req: LoginRequest) -> dict | None:
         try:
             auth_response = await asyncio.to_thread(
-                supabase.auth.sign_in_with_password,
+                supabase_auth.auth.sign_in_with_password,
                 {"email": req.email, "password": req.password},
             )
         except Exception:
@@ -46,7 +46,7 @@ class AuthRepository:
 
         try:
             auth_response = await asyncio.to_thread(
-                supabase.auth.admin.create_user,
+                supabase_auth.auth.admin.create_user,
                 {
                     "email": req.email,
                     "password": req.password,
@@ -78,7 +78,7 @@ class AuthRepository:
         )
         if not resp.data:
             try:
-                await asyncio.to_thread(supabase.auth.admin.delete_user, auth_response.user.id)
+                await asyncio.to_thread(supabase_auth.auth.admin.delete_user, auth_response.user.id)
             except Exception:
                 pass
             return None

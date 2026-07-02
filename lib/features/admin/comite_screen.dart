@@ -224,6 +224,7 @@ class ComiteScreen extends ConsumerWidget {
     bool isSubmitting = false;
     final montoCtrl = TextEditingController();
     final condicionCtrl = TextEditingController();
+    final motivoRechazoCtrl = TextEditingController();
 
     showDialog(
       context: context,
@@ -258,6 +259,18 @@ class ComiteScreen extends ConsumerWidget {
                   decoration: const InputDecoration(labelText: 'Condición adicional', border: OutlineInputBorder()),
                 ),
               ],
+              if (decision == 'rechazado') ...[
+                const SizedBox(height: 8),
+                TextField(
+                  controller: motivoRechazoCtrl,
+                  maxLines: 3,
+                  decoration: const InputDecoration(
+                    labelText: 'Motivo de rechazo',
+                    hintText: 'Explique la razón del rechazo...',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+              ],
             ],
           ),
           actions: [
@@ -275,6 +288,7 @@ class ComiteScreen extends ConsumerWidget {
                           'decision': decision,
                           'monto_aprobado': double.tryParse(montoCtrl.text),
                           'condicion_adicional': condicionCtrl.text.isNotEmpty ? condicionCtrl.text : null,
+                          'motivo_rechazo': motivoRechazoCtrl.text.isNotEmpty ? motivoRechazoCtrl.text : null,
                         });
                         Navigator.pop(ctx);
                         ref.invalidate(comiteListProvider);
@@ -285,6 +299,8 @@ class ComiteScreen extends ConsumerWidget {
                         setDialogState(() => isSubmitting = false);
                         final msg = e.toString();
                         if (msg.contains('Failed to fetch') || msg.contains('ClientException')) {
+                          Navigator.pop(ctx);
+                          ref.invalidate(comiteListProvider);
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(
                               content: const Text(
