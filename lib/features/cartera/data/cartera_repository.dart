@@ -20,10 +20,13 @@ class CarteraRepository {
 
   CarteraRepository(this._localDb, this._networkMonitor, this._api);
 
-  Future<List<CarteraVisita>> obtenerCarteraDiaria(String asesorId) async {
+  Future<List<CarteraVisita>> obtenerCarteraDiaria(String asesorId, {String? tipoGestion}) async {
     if (_networkMonitor.isOnline) {
       try {
-        final list = await _api.getList('/cartera/completa');
+        final path = tipoGestion != null
+            ? '/cartera/completa?tipo_gestion=$tipoGestion'
+            : '/cartera/completa';
+        final list = await _api.getList(path);
         final visitas = list
             .map((j) => CarteraVisita.fromJson(j as Map<String, dynamic>))
             .toList();

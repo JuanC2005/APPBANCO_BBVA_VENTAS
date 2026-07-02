@@ -418,6 +418,12 @@ class HomebankingRepository:
             .eq("id", solicitud_id)
             .eq("cliente_id", cliente_id)
         )
+        if resp.data:
+            await supabase_execute(
+                supabase.table("clientes")
+                .update({"lat": lat, "lng": lng})
+                .eq("id", cliente_id)
+            )
         return len(resp.data) > 0
 
     async def obtener_solicitud_cliente(self, solicitud_id: str, cliente_id: str) -> dict | None:

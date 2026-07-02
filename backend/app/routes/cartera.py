@@ -14,9 +14,12 @@ async def listar_cartera(user: dict = Depends(get_current_user)):
 
 
 @router.get("/completa")
-async def listar_cartera_completa(user: dict = Depends(get_current_user)):
+async def listar_cartera_completa(
+    tipo_gestion: str | None = None,
+    user: dict = Depends(get_current_user),
+):
     repo = CarteraRepository()
-    return await repo.obtener_cartera_completa(user["id"])
+    return await repo.obtener_cartera_completa(user["id"], tipo_gestion)
 
 
 @router.put("/{visita_id}/visita")

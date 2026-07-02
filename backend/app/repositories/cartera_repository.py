@@ -46,20 +46,43 @@ class CarteraRepository:
             return resp.data[0]["id"]
         return None
 
-    async def obtener_cartera_completa(self, asesor_id: str) -> list[dict]:
-        response = await supabase_execute(
+    async def obtener_cartera_completa(self, asesor_id: str, tipo_gestion: str | None = None) -> list[dict]:
+        query = (
             supabase.table("cartera_diaria")
             .select("*, clientes(*)")
             .eq("asesor_id", asesor_id)
-            .order("score_prioridad")
         )
+        if tipo_gestion:
+            query = query.eq("tipo_gestion", tipo_gestion)
+        response = await supabase_execute(query.order("score_prioridad"))
+
+        solicitud_estados: dict[str, str | None] = {}
+        if tipo_gestion == "NUEVA_SOLICITUD":
+            cliente_ids = [c["cliente_id"] for c in response.data]
+            for cid in cliente_ids:
+                sol_resp = await supabase_execute(
+                    supabase.table("solicitudes_credito")
+                    .select("estado")
+                    .eq("cliente_id", cid)
+                    .eq("canal", "cliente")
+                    .order("created_at", desc=True)
+                    .limit(1)
+                )
+                solicitud_estados[cid] = sol_resp.data[0]["estado"] if sol_resp.data else None
+
         rows = []
         for c in response.data:
             cl = c.get("clientes") or {}
-            rows.append({
+            cid = c["cliente_id"]
+            if tipo_gestion == "NUEVA_SOLICITUD":
+                estado = solicitud_estados.get(cid)
+                if estado is None or estado != "enviado":
+                    continue
+
+            row = {
                 "id": c["id"],
                 "asesor_id": c["asesor_id"],
-                "cliente_id": c["cliente_id"],
+                "cliente_id": cid,
                 "cliente_nombre": f"{cl.get('nombres', '')} {cl.get('apellidos', '')}",
                 "numero_documento": cl.get("numero_documento", ""),
                 "calificacion_sbs": cl.get("calificacion_sbs", ""),
@@ -74,5 +97,8 @@ class CarteraRepository:
                 "lat_visita": c.get("lat_visita"),
                 "lng_visita": c.get("lng_visita"),
                 "fecha_asignacion": str(c.get("fecha_asignacion", "")),
-            })
+            }
+            print(f"[DEBUG cartera] row: id={row['id'][:8]}.. tipo={row['tipo_gestion']} lat_visita={row['lat_visita']} lng_visita={row['lng_visita']} lat={row['lat']} lng={row['lng']} resultado={row['resultado_visita']}")
+            rows.append(row)
+        print(f"[DEBUG cartera] TOTAL filas para asesor {asesor_id[:8]} (tipo={tipo_gestion}): {len(rows)}")
         return rows

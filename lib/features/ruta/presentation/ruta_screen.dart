@@ -16,7 +16,7 @@ class RutaScreen extends ConsumerStatefulWidget {
 }
 
 class _RutaScreenState extends ConsumerState<RutaScreen> {
-  MapController? _mapController;
+  final _mapController = MapController();
 
   @override
   void initState() {
@@ -30,24 +30,42 @@ class _RutaScreenState extends ConsumerState<RutaScreen> {
     final asesor = ref.read(authViewModelProvider).asesor;
     final vm = ref.read(rutaViewModelProvider.notifier);
 
-    try {
-      final pos = await Geolocator.getCurrentPosition();
-      vm.setCurrentPosition(LatLng(pos.latitude, pos.longitude));
-      if (asesor != null) {
-        await vm.cargarRuta(asesor.id);
-        vm.optimizarRuta();
+    if (asesor != null) {
+      await vm.cargarRuta(asesor.id);
+    }
+
+    final perm = await Geolocator.checkPermission();
+    if (perm == LocationPermission.denied) {
+      await Geolocator.requestPermission();
+    }
+    if (perm == LocationPermission.deniedForever) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Ubicación denegada permanentemente. Actívala en Ajustes de tu dispositivo.'),
+          ),
+        );
       }
-      _animateToFit();
-    } catch (_) {}
+    } else {
+      try {
+        final pos = await Geolocator.getCurrentPosition();
+        vm.setCurrentPosition(LatLng(pos.latitude, pos.longitude));
+      } catch (_) {}
+    }
+
+    vm.optimizarRuta();
+    if (!mounted) return;
+    _animateToFit();
   }
 
   void _animateToFit() {
+    if (!mounted) return;
     final state = ref.read(rutaViewModelProvider);
     if (state.rutaOptimizada.isEmpty && state.currentPosition == null) return;
 
     final bounds = _calculateBounds(state);
     if (bounds != null) {
-      _mapController?.fitCamera(
+      _mapController.fitCamera(
         CameraFit.bounds(
           bounds: bounds,
           padding: const EdgeInsets.all(64),
@@ -115,7 +133,23 @@ class _RutaScreenState extends ConsumerState<RutaScreen> {
   }
 
   List<Polyline> _buildPolylines(RutaState state) {
-    if (state.rutaOptimizada.length < 2) return [];
+    if (state.rutaOptimizada.isEmpty) return [];
+    final hasGps = state.currentPosition != null;
+    if (state.rutaOptimizada.length < 2 && !hasGps) return [];
+
+    if (state.polylines.isNotEmpty) {
+      return state.polylines.asMap().entries.map((e) {
+        final t = state.polylines.length > 1
+            ? e.key / (state.polylines.length - 1)
+            : 1.0;
+        return Polyline(
+          points: e.value,
+          color: Color.lerp(const Color(0xFF1565C0), const Color(0xFF2E7D32), t)!,
+          strokeWidth: 5,
+        );
+      }).toList();
+    }
+
     final points = <LatLng>[];
     if (state.currentPosition != null) {
       points.add(state.currentPosition!);
@@ -175,27 +209,33 @@ class _RutaScreenState extends ConsumerState<RutaScreen> {
               PolylineLayer(polylines: _buildPolylines(state)),
             ],
           ),
-          Positioned(
-            right: 16,
-            bottom: 16,
-            child: FloatingActionButton(
-              mini: true,
-              onPressed: () async {
-                try {
-                  final pos = await Geolocator.getCurrentPosition();
-                  _mapController?.move(
-                      LatLng(pos.latitude, pos.longitude), 15);
-                } catch (_) {}
-              },
-              child: const Icon(Icons.my_location),
-            ),
-          ),
           if (state.isLoading)
             const Positioned(
               top: 16,
               left: 0,
               right: 0,
               child: Center(child: CircularProgressIndicator()),
+            ),
+          if (state.isLoadingRuta)
+            const Positioned(
+              top: 64,
+              left: 0,
+              right: 0,
+              child: Center(
+                child: Card(
+                  child: Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                                SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)),
+                                SizedBox(width: 8),
+                        Text('Calculando ruta...', style: TextStyle(fontSize: 13)),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
             ),
           if (state.error != null)
             Positioned(
@@ -225,8 +265,47 @@ class _RutaScreenState extends ConsumerState<RutaScreen> {
                 ),
               ),
             ),
+          if (state.rutaOptimizada.isNotEmpty && !state.isLoadingRuta)
+            Positioned(
+              top: 100,
+              left: 0,
+              right: 0,
+              child: Center(
+                child: Card(
+                  color: state.polylines.isNotEmpty
+                      ? Color(0xFF1B5E20)
+                      : Color(0xFFE65100),
+                  child: Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    child: Text(
+                      state.polylines.isNotEmpty
+                          ? 'Ruta OSRM: ${state.polylines.length} segmentos'
+                          : 'Fallback: línea recta',
+                      style: TextStyle(color: Colors.white, fontSize: 12),
+                    ),
+                  ),
+                ),
+              ),
+            ),
           _buildBottomSheet(state, vm),
         ],
+      ),
+      floatingActionButton: FloatingActionButton(
+        mini: true,
+        onPressed: () async {
+          try {
+            final pos = await Geolocator.getCurrentPosition();
+            _mapController.move(
+                LatLng(pos.latitude, pos.longitude), 15);
+          } catch (e) {
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('No se pudo obtener ubicación. Verifica que el GPS esté activado.')),
+              );
+            }
+          }
+        },
+        child: const Icon(Icons.my_location),
       ),
     );
   }
@@ -289,9 +368,10 @@ class _RutaScreenState extends ConsumerState<RutaScreen> {
                       ref.read(rutaViewModelProvider.notifier).abrirNavegacion(paradas[i]),
                   onTap: () {
                     final v = paradas[i];
-                    if (v.lat != null && v.lng != null || v.latVisita != null && v.lngVisita != null) {
-                      _mapController?.move(
-                          LatLng(v.lat!, v.lng!), 16);
+                    final lat = v.lat ?? v.latVisita;
+                    final lng = v.lng ?? v.lngVisita;
+                    if (lat != null && lng != null) {
+                      _mapController.move(LatLng(lat, lng), 16);
                     }
                   },
                 ),

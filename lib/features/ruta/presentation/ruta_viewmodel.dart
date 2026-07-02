@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../../../services/osrm_service.dart';
 import '../../cartera/domain/cartera_visita.dart';
 import '../data/ruta_repository.dart';
 
@@ -9,14 +10,18 @@ class RutaState {
   final List<CarteraVisita> rutaOptimizada;
   final LatLng? currentPosition;
   final bool isLoading;
+  final bool isLoadingRuta;
   final String? error;
+  final List<List<LatLng>> polylines;
 
   const RutaState({
     this.visitas = const [],
     this.rutaOptimizada = const [],
     this.currentPosition,
     this.isLoading = false,
+    this.isLoadingRuta = false,
     this.error,
+    this.polylines = const [],
   });
 
   RutaState copyWith({
@@ -24,20 +29,26 @@ class RutaState {
     List<CarteraVisita>? rutaOptimizada,
     LatLng? currentPosition,
     bool? isLoading,
+    bool? isLoadingRuta,
     String? error,
+    List<List<LatLng>>? polylines,
   }) {
     return RutaState(
       visitas: visitas ?? this.visitas,
       rutaOptimizada: rutaOptimizada ?? this.rutaOptimizada,
       currentPosition: currentPosition ?? this.currentPosition,
       isLoading: isLoading ?? this.isLoading,
+      isLoadingRuta: isLoadingRuta ?? this.isLoadingRuta,
       error: error,
+      polylines: polylines ?? this.polylines,
     );
   }
 }
 
 class RutaViewModel extends StateNotifier<RutaState> {
   final RutaRepository _repository;
+  final OsrmService _osrmService = OsrmService();
+  int _rutaGeneration = 0;
 
   RutaViewModel(this._repository) : super(const RutaState());
 
@@ -56,6 +67,7 @@ class RutaViewModel extends StateNotifier<RutaState> {
     final current = state.currentPosition;
     if (current == null || state.visitas.isEmpty) {
       state = state.copyWith(rutaOptimizada: state.visitas);
+      _fetchRuta();
       return;
     }
     final restantes = state.visitas.toList();
@@ -78,6 +90,22 @@ class RutaViewModel extends StateNotifier<RutaState> {
       origen = LatLng(next.lat ?? next.latVisita!, next.lng ?? next.lngVisita!);
     }
     state = state.copyWith(rutaOptimizada: ruta);
+    _fetchRuta();
+  }
+
+  Future<void> _fetchRuta() async {
+    final ruta = state.rutaOptimizada;
+    final origin = state.currentPosition;
+    if (ruta.isEmpty) return;
+    if (ruta.length < 2 && origin == null) return;
+    final gen = ++_rutaGeneration;
+    state = state.copyWith(isLoadingRuta: true);
+    final polylines = await _osrmService.fetchRuta(ruta, origin: origin);
+    if (gen != _rutaGeneration) return;
+    state = state.copyWith(
+      polylines: polylines ?? [],
+      isLoadingRuta: false,
+    );
   }
 
   double _distancia(LatLng a, LatLng b) {

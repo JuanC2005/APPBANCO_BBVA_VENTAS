@@ -135,49 +135,55 @@ class SolicitudRepository:
         return rows
 
     async def tomar_solicitud(self, solicitud_id: str, asesor_id: str) -> dict | None:
-        solicitud_resp = await supabase_execute(
-            supabase.table("solicitudes_credito").select("*").eq("id", solicitud_id)
-        )
-        if not solicitud_resp.data:
-            return None
+        try:
+            solicitud_resp = await supabase_execute(
+                supabase.table("solicitudes_credito").select("*").eq("id", solicitud_id)
+            )
+            if not solicitud_resp.data:
+                return None
 
-        solicitud = solicitud_resp.data[0]
-        if solicitud.get("asesor_id") is not None:
-            return None
+            solicitud = solicitud_resp.data[0]
+            if solicitud.get("asesor_id") is not None:
+                return None
 
-        now = datetime.now(timezone.utc)
-        await supabase_execute(
-            supabase.table("solicitudes_credito")
-            .update({
+            now = datetime.now(timezone.utc)
+            await supabase_execute(
+                supabase.table("solicitudes_credito")
+                .update({
+                    "asesor_id": asesor_id,
+                    "updated_at": now.isoformat(),
+                })
+                .eq("id", solicitud_id)
+            )
+
+            # Crear entrada en cartera_diaria
+            agencia_resp = await supabase_execute(
+                supabase.table("asesores_negocio")
+                .select("agencia_id")
+                .eq("id", asesor_id)
+            )
+            agencia_id = agencia_resp.data[0]["agencia_id"] if agencia_resp.data else None
+
+            cartera_entry = {
                 "asesor_id": asesor_id,
-                "updated_at": now.isoformat(),
-            })
-            .eq("id", solicitud_id)
-        )
+                "cliente_id": solicitud["cliente_id"],
+                "agencia_id": agencia_id,
+                "fecha_asignacion": now.date().isoformat(),
+                "tipo_gestion": "NUEVA_SOLICITUD",
+                "prioridad": "alta",
+                "monto_referencial": solicitud["monto_solicitado"],
+                "estado_visita": "pendiente",
+                "lat_visita": solicitud.get("lat_captura"),
+                "lng_visita": solicitud.get("lng_captura"),
+            }
+            await supabase_execute(supabase.table("cartera_diaria").insert(cartera_entry))
 
-        # Crear entrada en cartera_diaria
-        agencia_resp = await supabase_execute(
-            supabase.table("asesores_negocio")
-            .select("agencia_id")
-            .eq("id", asesor_id)
-        )
-        agencia_id = agencia_resp.data[0]["agencia_id"] if agencia_resp.data else None
-
-        cartera_entry = {
-            "asesor_id": asesor_id,
-            "cliente_id": solicitud["cliente_id"],
-            "agencia_id": agencia_id,
-            "fecha_asignacion": now.date().isoformat(),
-            "tipo_gestion": "NUEVA_SOLICITUD",
-            "prioridad": "alta",
-            "monto_referencial": solicitud["monto_solicitado"],
-            "estado_visita": "pendiente",
-            "lat_visita": solicitud.get("lat_captura"),
-            "lng_visita": solicitud.get("lng_captura"),
-        }
-        await supabase_execute(supabase.table("cartera_diaria").insert(cartera_entry))
-
-        return {"mensaje": "Solicitud asignada correctamente", "asesor_id": asesor_id}
+            return {"mensaje": "Solicitud asignada correctamente", "asesor_id": asesor_id}
+        except Exception as e:
+            print(f"[ERROR] tomar_solicitud: {e}")
+            import traceback
+            traceback.print_exc()
+            return None
 
     # ── Comité methods ──────────────────────────────────
 
