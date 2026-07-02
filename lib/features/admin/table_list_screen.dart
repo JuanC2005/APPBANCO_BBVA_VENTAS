@@ -19,6 +19,7 @@ class _TableListScreenState extends State<TableListScreen> {
   String _searchQuery = '';
   int? _sortColumnIndex;
   bool _sortAscending = true;
+  Map<String, Map<String, String>> _foreignLookups = {};
 
   TableConfig? get _config => DatabaseTables.getByTableName(widget.tableName);
 
@@ -45,8 +46,10 @@ class _TableListScreenState extends State<TableListScreen> {
           .select()
           .order(_config!.tableColumns.first.fieldName,
               ascending: false)
-          .limit(200);
+          .limit(500);
       _data = List<Map<String, dynamic>>.from(response);
+
+      await _resolveForeignKeys();
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -58,6 +61,34 @@ class _TableListScreenState extends State<TableListScreen> {
       }
     }
     if (mounted) setState(() => _loading = false);
+  }
+
+  Future<void> _resolveForeignKeys() async {
+    _foreignLookups = {};
+    for (final col in _config!.tableColumns) {
+      if (col.foreignTable == null || col.foreignLabel == null) continue;
+      if (_foreignLookups.containsKey(col.foreignTable)) continue;
+
+      final ids = _data
+          .map((r) => r[col.fieldName]?.toString())
+          .where((v) => v != null)
+          .toSet()
+          .toList();
+      if (ids.isEmpty) continue;
+
+      try {
+        final foreignData = await SupabaseClientProvider.client
+            .from(col.foreignTable!)
+            .select('id, ${col.foreignLabel}')
+            .inFilter('id', ids);
+        _foreignLookups[col.foreignTable!] = {
+          for (final row in List<Map<String, dynamic>>.from(foreignData))
+            row['id'].toString(): row[col.foreignLabel]?.toString() ?? '-',
+        };
+      } catch (_) {
+        _foreignLookups[col.foreignTable!] = {};
+      }
+    }
   }
 
   Future<void> _deleteRecord(String id) async {
@@ -126,6 +157,14 @@ class _TableListScreenState extends State<TableListScreen> {
       for (final col in _config!.tableColumns) {
         final val = row[col.fieldName]?.toString().toLowerCase() ?? '';
         if (val.contains(q)) return true;
+        if (col.foreignTable != null) {
+          final lookup = _foreignLookups[col.foreignTable];
+          final id = row[col.fieldName]?.toString();
+          if (lookup != null && id != null) {
+            final fv = lookup[id]?.toLowerCase();
+            if (fv != null && fv.contains(q)) return true;
+          }
+        }
       }
       return false;
     }).toList();
@@ -277,7 +316,9 @@ class _TableListScreenState extends State<TableListScreen> {
               ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 200),
                 child: Text(
-                  _formatCellValue(row[colConfig.fieldName], colConfig),
+                  colConfig.foreignTable != null
+                      ? _formatForeignValue(row, colConfig)
+                      : _formatCellValue(row[colConfig.fieldName], colConfig),
                   overflow: TextOverflow.ellipsis,
                   maxLines: 1,
                   style: TextStyle(
@@ -312,6 +353,15 @@ class _TableListScreenState extends State<TableListScreen> {
         ],
       );
     }).toList();
+  }
+
+  String _formatForeignValue(Map<String, dynamic> row, ColumnConfig col) {
+    final lookup = _foreignLookups[col.foreignTable];
+    final id = row[col.fieldName]?.toString();
+    if (lookup != null && id != null && lookup.containsKey(id)) {
+      return lookup[id]!;
+    }
+    return _formatCellValue(row[col.fieldName], col);
   }
 
   String _formatCellValue(dynamic value, ColumnConfig col) {
