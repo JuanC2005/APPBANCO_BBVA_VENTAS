@@ -15,13 +15,15 @@ class _TransmisionScreenState extends ConsumerState<TransmisionScreen> {
   @override
   void initState() {
     super.initState();
-    ref.read(transmisionViewModelProvider.notifier).reset();
+    ref.read(transmisionViewModelProvider(widget.solicitudId).notifier)
+        .reset();
   }
 
   @override
   Widget build(BuildContext context) {
-    final state = ref.watch(transmisionViewModelProvider);
-    final vm = ref.read(transmisionViewModelProvider.notifier);
+    final state = ref.watch(transmisionViewModelProvider(widget.solicitudId));
+    final vm =
+        ref.read(transmisionViewModelProvider(widget.solicitudId).notifier);
 
     return Scaffold(
       appBar: AppBar(title: const Text('Transmisión')),
@@ -79,9 +81,8 @@ class _TransmisionScreenState extends ConsumerState<TransmisionScreen> {
             SizedBox(
               width: double.infinity,
               child: ElevatedButton.icon(
-                onPressed: state.transmitiendo
-                    ? null
-                    : () => vm.iniciar(widget.solicitudId),
+                onPressed:
+                    state.transmitiendo ? null : () => vm.iniciar(),
                 icon: Icon(state.transmitiendo
                     ? Icons.hourglass_top
                     : Icons.cloud_upload),

@@ -36,10 +36,12 @@ class TransmisionState {
 
 class TransmisionViewModel extends StateNotifier<TransmisionState> {
   final TransmisionRepository _repository;
+  final String solicitudId;
 
-  TransmisionViewModel(this._repository) : super(const TransmisionState());
+  TransmisionViewModel(this._repository, this.solicitudId)
+      : super(const TransmisionState());
 
-  Future<void> iniciar(String solicitudId) async {
+  Future<void> iniciar() async {
     state = state.copyWith(transmitiendo: true, progreso: 0, error: false);
     final pasos = [
       'Validando datos de solicitud...',
@@ -74,6 +76,8 @@ class TransmisionViewModel extends StateNotifier<TransmisionState> {
 }
 
 final transmisionViewModelProvider =
-    StateNotifierProvider<TransmisionViewModel, TransmisionState>((ref) {
-  return TransmisionViewModel(ref.watch(transmisionRepositoryProvider));
+    StateNotifierProvider.family<TransmisionViewModel, TransmisionState, String>(
+        (ref, solicitudId) {
+  return TransmisionViewModel(
+      ref.watch(transmisionRepositoryProvider), solicitudId);
 });
