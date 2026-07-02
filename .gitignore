@@ -2,8 +2,13 @@
 backend/.env
 backend/.venv/
 backend/venv/
+backend/uploads/
 __pycache__/
 *.pyc
+
+# Root (moved to Docker)
+runtime.txt
+Procfile
 
 # Miscellaneous
 *.class
